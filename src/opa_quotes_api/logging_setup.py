@@ -22,3 +22,16 @@ def setup_logging() -> None:
     logging.getLogger("uvicorn").setLevel(logging.INFO)
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+
+
+def get_logger(name: str) -> logging.Logger:
+    """
+    Get a logger instance for a module.
+    
+    Args:
+        name: Module name (__name__)
+        
+    Returns:
+        Logger instance
+    """
+    return logging.getLogger(name)

@@ -10,15 +10,15 @@ packages = [{include = "opa_quotes_api", from = "src"}]
 python = "^3.12,<3.13"  # Fixed by OPA-63
 pydantic = "^2.5"
 pydantic-settings = "^2.1"
-sqlalchemy[asyncio] = "^2.0"
+sqlalchemy = {version = "^2.0", extras = ["asyncio"]}
 asyncpg = "^0.29"
 alembic = "^1.13"
 pyyaml = "^6.0"
 tenacity = "^8.2"
 prometheus-client = "^0.19"
-fastapi>=0.104
-uvicorn[standard]>=0.24
-redis>=5.0
+fastapi = ">=0.104"
+uvicorn = {version = ">=0.24", extras = ["standard"]}
+redis = ">=5.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
@@ -27,7 +27,6 @@ pytest-asyncio = "^0.23"
 ruff = "^0.1"
 mypy = "^1.7"
 httpx = "^0.25"  # For testing
-httpx>=0.25
 
 [tool.poetry.scripts]
 opa_quotes_api = "opa_quotes_api.main:main"

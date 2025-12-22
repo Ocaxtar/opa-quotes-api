@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 # Settings
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """Manage application lifespan."""
     logger.info(f"Starting {settings.app_name} v{settings.version}")
     

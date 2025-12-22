@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi import APIRouter, HTTPException, Path, Query, Depends
 
 from opa_quotes_api.schemas import (
     BatchRequest,
@@ -11,6 +11,8 @@ from opa_quotes_api.schemas import (
     HistoryResponse,
     QuoteResponse,
 )
+from opa_quotes_api.dependencies import get_quote_service
+from opa_quotes_api.services.quote_service import QuoteService
 
 router = APIRouter(
     prefix="/quotes",
@@ -29,13 +31,15 @@ router = APIRouter(
     description="Retrieve the most recent quote for a given ticker symbol",
 )
 async def get_latest_quote(
-    ticker: str = Path(..., description="Ticker symbol (e.g., AAPL)", min_length=1, max_length=10)
+    ticker: str = Path(..., description="Ticker symbol (e.g., AAPL)", min_length=1, max_length=10),
+    service: QuoteService = Depends(get_quote_service)
 ) -> QuoteResponse:
     """
     Get the latest quote for a ticker.
     
     Args:
         ticker: Stock ticker symbol
+        service: Injected QuoteService
         
     Returns:
         QuoteResponse with the latest market data
@@ -43,12 +47,15 @@ async def get_latest_quote(
     Raises:
         HTTPException: 404 if ticker not found
     """
-    # TODO: Implement with QuoteService once available
-    # For now, return mock data to test router structure
-    raise HTTPException(
-        status_code=501,
-        detail="Endpoint not implemented yet - awaiting QuoteService implementation"
-    )
+    quote = await service.get_latest(ticker)
+    
+    if not quote:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Ticker {ticker} not found"
+        )
+    
+    return quote
 
 
 @router.post(
@@ -59,7 +66,8 @@ async def get_latest_quote(
 )
 async def get_history(
     ticker: str = Path(..., description="Ticker symbol (e.g., AAPL)", min_length=1, max_length=10),
-    request: HistoryRequest = None
+    request: HistoryRequest = None,
+    service: QuoteService = Depends(get_quote_service)
 ) -> HistoryResponse:
     """
     Get historical quotes for a ticker.
@@ -67,6 +75,7 @@ async def get_history(
     Args:
         ticker: Stock ticker symbol
         request: History request with date range and interval
+        service: Injected QuoteService
         
     Returns:
         HistoryResponse with OHLC time series data
@@ -82,11 +91,8 @@ async def get_history(
             detail="Ticker in URL must match ticker in request body"
         )
     
-    # TODO: Implement with QuoteService once available
-    raise HTTPException(
-        status_code=501,
-        detail="Endpoint not implemented yet - awaiting QuoteService implementation"
-    )
+    response = await service.get_history(request)
+    return response
 
 
 @router.post(
@@ -96,22 +102,21 @@ async def get_history(
     description="Retrieve latest quotes for multiple tickers in a single request",
 )
 async def get_batch_quotes(
-    request: BatchRequest
+    request: BatchRequest,
+    service: QuoteService = Depends(get_quote_service)
 ) -> BatchResponse:
     """
     Get quotes for multiple tickers.
     
     Args:
         request: Batch request with list of ticker symbols
+        service: Injected QuoteService
         
     Returns:
         BatchResponse with quotes for each ticker
     """
-    # TODO: Implement with QuoteService once available
-    raise HTTPException(
-        status_code=501,
-        detail="Endpoint not implemented yet - awaiting QuoteService implementation"
-    )
+    response = await service.get_batch(request)
+    return response
 
 
 @router.get(
@@ -122,7 +127,8 @@ async def get_batch_quotes(
 )
 async def list_tickers(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of tickers to return"),
-    offset: int = Query(0, ge=0, description="Offset for pagination")
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
+    service: QuoteService = Depends(get_quote_service)
 ) -> List[str]:
     """
     List available tickers with pagination.
@@ -130,12 +136,10 @@ async def list_tickers(
     Args:
         limit: Maximum number of tickers to return
         offset: Pagination offset
+        service: Injected QuoteService
         
     Returns:
         List of ticker symbols
     """
-    # TODO: Implement with QuoteService once available
-    raise HTTPException(
-        status_code=501,
-        detail="Endpoint not implemented yet - awaiting QuoteService implementation"
-    )
+    tickers = await service.list_tickers(limit, offset)
+    return tickers

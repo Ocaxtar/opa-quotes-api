@@ -222,31 +222,34 @@ poetry run pytest --cov=opa_quotes_api --cov-report=html
 # 3. Mover a "In Progress"
 ```
 
-**Al completar**:
-```bash
-# 1. Añadir comentario de cierre (template obligatorio)
-# 2. Incluir prefijo: 🤖 Agente opa-quotes-api:
-# 3. Listar cambios, commits, tests pasados
-# 4. Hacer merge a main de la rama feature
-# 5. Solo ENTONCES: mover a "Done"
-```
+**Al completar - Workflow de Merge (OBLIGATORIO)**:
 
-**Proceso de merge**:
 ```bash
-# 1. Asegurarse de que todos los tests pasan
-poetry run pytest -v
+# 1. Asegurar que todos los cambios están commiteados
+git status  # Debe estar limpio
 
-# 2. Cambiar a main y hacer merge
+# 2. Actualizar main local
 git checkout main
-git merge --no-ff oscarcalvo/OPA-XXX-feature-name
+git pull origin main
 
-# 3. Push a origin
+# 3. Mergear branch a main (squash para historia limpia)
+git merge --squash oscarcalvo/OPA-XXX-feature-name
+
+# 4. Commit final con mensaje de issue
+git commit -m "OPA-XXX: Descripción completa de la feature/fix"
+
+# 5. Pushear a GitHub
 git push origin main
 
-# 4. Eliminar rama feature (opcional)
+# 6. Eliminar branch local y remota
 git branch -d oscarcalvo/OPA-XXX-feature-name
-git push origin --delete oscarcalvo/OPA-XXX-feature-name
+git push origin --delete oscarcalvo/OPA-XXX-feature-name 2>/dev/null || true
+
+# 7. Añadir comentario de cierre en Linear con prefijo 🤖 Agente opa-quotes-api:
+# 8. Solo ENTONCES: Mover a "Done"
 ```
+
+**⚠️ REGLA CRÍTICA**: NO cerrar issue si la branch no está mergeada. Ramas sin mergear = trabajo perdido.
 
 **Template de comentario de cierre**:
 ```markdown
@@ -271,6 +274,7 @@ git push origin --delete oscarcalvo/OPA-XXX-feature-name
 - [x] pytest pasado (12/12 tests)
 - [x] Linter sin errores
 - [x] Commit pusheado a GitHub
+- [x] Branch mergeada y eliminada
 
 Issue cerrada.
 ```
@@ -498,30 +502,21 @@ logger = PipelineLogger(
     repository="opa-quotes-api"
 )
 
-logger.info("Quote served", extra={
-    "ticker": ticker,
-    "latency_ms": latency,
-    "from_cache": from_cache
-})
+logger.log_info("Quote request received", extra={"ticker": "AAPL"})
+logger.log_error("Cache miss", extra={"ticker": "AAPL"})
 ```
 
 ## Referencias
 
-**Documentación supervisor**:
+**Supervisor**:
 - Arquitectura: `OPA_Machine/docs/architecture/ecosystem-overview.md`
-- Contratos API: `OPA_Machine/docs/contracts/apis/quotes-api-contract.md`
-- ADR-007: Multi-workspace architecture
-- Stack: `OPA_Machine/docs/notion-sync/stack-tecnologico.md`
+- Contratos: `OPA_Machine/docs/contracts/apis/quotes-api-contract.md`
 
-**Roadmap**:
-- Local: [ROADMAP.md](ROADMAP.md)
-- Supervisor: [OPA_Machine/ROADMAP.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/ROADMAP.md)
-
-**Linear**:
-- Proyecto: opa-quotes-api
-- Label: `opa-quotes-api` (sub-tag del grupo "repo")
+**Repos relacionados**:
+- [opa-quotes-storage](https://github.com/Ocaxtar/opa-quotes-storage)
+- [opa-quotes-streamer](https://github.com/Ocaxtar/opa-quotes-streamer)
 
 ---
 
-**Última actualización**: 2025-12-22  
-**Mantenedor**: Equipo OPA
+📝 **Este documento debe actualizarse conforme evolucione el repositorio**  
+**Última sincronización con supervisor**: 2025-12-22

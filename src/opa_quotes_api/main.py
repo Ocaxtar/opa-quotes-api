@@ -11,6 +11,7 @@ from prometheus_client import make_asgi_app
 from opa_quotes_api.config import get_settings
 from opa_quotes_api.database import engine
 from opa_quotes_api.logging_setup import setup_logging
+from opa_quotes_api.routers import quotes
 
 # Setup logging
 setup_logging()
@@ -24,10 +25,10 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """Manage application lifespan."""
     logger.info(f"Starting {settings.app_name} v{settings.version}")
-    
+
     # Startup
     yield
-    
+
     # Shutdown
     logger.info("Shutting down...")
     await engine.dispose()
@@ -64,9 +65,7 @@ async def health_check():
     }
 
 
-# Import routers
-from opa_quotes_api.routers import quotes
-
+# Include routers
 app.include_router(quotes.router)
 
 

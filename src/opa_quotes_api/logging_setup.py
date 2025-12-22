@@ -8,7 +8,7 @@ from opa_quotes_api.config import get_settings
 def setup_logging() -> None:
     """Configure logging for the application."""
     settings = get_settings()
-    
+
     # Configure root logger
     logging.basicConfig(
         level=getattr(logging, settings.log_level.upper()),
@@ -17,7 +17,7 @@ def setup_logging() -> None:
             logging.StreamHandler(sys.stdout)
         ]
     )
-    
+
     # Set specific loggers
     logging.getLogger("uvicorn").setLevel(logging.INFO)
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
@@ -27,10 +27,10 @@ def setup_logging() -> None:
 def get_logger(name: str) -> logging.Logger:
     """
     Get a logger instance for a module.
-    
+
     Args:
         name: Module name (__name__)
-        
+
     Returns:
         Logger instance
     """

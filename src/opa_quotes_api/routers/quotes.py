@@ -1,9 +1,8 @@
 """FastAPI router for quote endpoints."""
-from datetime import datetime
-from typing import List
 
-from fastapi import APIRouter, HTTPException, Path, Query, Depends
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
+from opa_quotes_api.dependencies import get_quote_service
 from opa_quotes_api.schemas import (
     BatchRequest,
     BatchResponse,
@@ -11,7 +10,6 @@ from opa_quotes_api.schemas import (
     HistoryResponse,
     QuoteResponse,
 )
-from opa_quotes_api.dependencies import get_quote_service
 from opa_quotes_api.services.quote_service import QuoteService
 
 router = APIRouter(
@@ -36,25 +34,25 @@ async def get_latest_quote(
 ) -> QuoteResponse:
     """
     Get the latest quote for a ticker.
-    
+
     Args:
         ticker: Stock ticker symbol
         service: Injected QuoteService
-        
+
     Returns:
         QuoteResponse with the latest market data
-        
+
     Raises:
         HTTPException: 404 if ticker not found
     """
     quote = await service.get_latest(ticker)
-    
+
     if not quote:
         raise HTTPException(
             status_code=404,
             detail=f"Ticker {ticker} not found"
         )
-    
+
     return quote
 
 
@@ -71,15 +69,15 @@ async def get_history(
 ) -> HistoryResponse:
     """
     Get historical quotes for a ticker.
-    
+
     Args:
         ticker: Stock ticker symbol
         request: History request with date range and interval
         service: Injected QuoteService
-        
+
     Returns:
         HistoryResponse with OHLC time series data
-        
+
     Raises:
         HTTPException: 404 if ticker not found
         HTTPException: 400 if date range invalid
@@ -90,7 +88,7 @@ async def get_history(
             status_code=400,
             detail="Ticker in URL must match ticker in request body"
         )
-    
+
     response = await service.get_history(request)
     return response
 
@@ -107,11 +105,11 @@ async def get_batch_quotes(
 ) -> BatchResponse:
     """
     Get quotes for multiple tickers.
-    
+
     Args:
         request: Batch request with list of ticker symbols
         service: Injected QuoteService
-        
+
     Returns:
         BatchResponse with quotes for each ticker
     """
@@ -121,7 +119,7 @@ async def get_batch_quotes(
 
 @router.get(
     "/",
-    response_model=List[str],
+    response_model=list[str],
     summary="List available tickers",
     description="Get a list of all available ticker symbols",
 )
@@ -129,15 +127,15 @@ async def list_tickers(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of tickers to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     service: QuoteService = Depends(get_quote_service)
-) -> List[str]:
+) -> list[str]:
     """
     List available tickers with pagination.
-    
+
     Args:
         limit: Maximum number of tickers to return
         offset: Pagination offset
         service: Injected QuoteService
-        
+
     Returns:
         List of ticker symbols
     """

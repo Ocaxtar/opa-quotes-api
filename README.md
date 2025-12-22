@@ -2,6 +2,12 @@
 
 **FastAPI REST + WebSockets API para servir cotizaciones en tiempo real**
 
+![CI](https://github.com/Ocaxtar/opa-quotes-api/workflows/CI/badge.svg)
+![Security](https://github.com/Ocaxtar/opa-quotes-api/workflows/Security/badge.svg)
+[![codecov](https://codecov.io/gh/Ocaxtar/opa-quotes-api/branch/main/graph/badge.svg)](https://codecov.io/gh/Ocaxtar/opa-quotes-api)
+![Python](https://img.shields.io/badge/python-3.12-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)
+
 ## 📋 Descripción
 
 API REST y WebSockets para servir cotizaciones de mercado en tiempo real del ecosistema OPA_Machine. Consume datos de `opa-quotes-storage` (TimescaleDB) y los expone mediante endpoints REST y streams WebSocket.

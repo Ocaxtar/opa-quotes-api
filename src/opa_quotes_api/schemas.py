@@ -2,14 +2,13 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
 
 class IntervalEnum(str, Enum):
     """Time interval options for historical data."""
-    
+
     ONE_MIN = "1m"
     FIVE_MIN = "5m"
     FIFTEEN_MIN = "15m"
@@ -20,7 +19,7 @@ class IntervalEnum(str, Enum):
 
 class QuoteResponse(BaseModel):
     """Schema de respuesta para cotización individual."""
-    
+
     ticker: str = Field(..., description="Symbol del activo", min_length=1, max_length=10)
     timestamp: datetime = Field(..., description="Timestamp de la cotización")
     open: Decimal = Field(..., description="Precio de apertura", ge=0)
@@ -28,9 +27,9 @@ class QuoteResponse(BaseModel):
     low: Decimal = Field(..., description="Precio mínimo", ge=0)
     close: Decimal = Field(..., description="Precio de cierre", ge=0)
     volume: int = Field(..., description="Volumen negociado", ge=0)
-    bid: Optional[Decimal] = Field(None, description="Precio de compra", ge=0)
-    ask: Optional[Decimal] = Field(None, description="Precio de venta", ge=0)
-    
+    bid: Decimal | None = Field(None, description="Precio de compra", ge=0)
+    ask: Decimal | None = Field(None, description="Precio de venta", ge=0)
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -50,7 +49,7 @@ class QuoteResponse(BaseModel):
 
 class HistoryRequest(BaseModel):
     """Schema de request para histórico de cotizaciones."""
-    
+
     ticker: str = Field(..., description="Symbol del activo", min_length=1, max_length=10)
     start_date: datetime = Field(..., description="Fecha inicio (ISO 8601)")
     end_date: datetime = Field(..., description="Fecha fin (ISO 8601)")
@@ -58,7 +57,7 @@ class HistoryRequest(BaseModel):
         default=IntervalEnum.ONE_MIN,
         description="Intervalo de agregación"
     )
-    
+
     @field_validator('end_date')
     @classmethod
     def validate_date_range(cls, v: datetime, info) -> datetime:
@@ -66,7 +65,7 @@ class HistoryRequest(BaseModel):
         if 'start_date' in info.data and v <= info.data['start_date']:
             raise ValueError('end_date must be after start_date')
         return v
-    
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -81,7 +80,7 @@ class HistoryRequest(BaseModel):
 
 class OHLCDataPoint(BaseModel):
     """OHLC data point para histórico."""
-    
+
     timestamp: datetime = Field(..., description="Timestamp del intervalo")
     open: Decimal = Field(..., description="Precio de apertura", ge=0)
     high: Decimal = Field(..., description="Precio máximo", ge=0)
@@ -92,12 +91,12 @@ class OHLCDataPoint(BaseModel):
 
 class HistoryResponse(BaseModel):
     """Schema de respuesta para histórico de cotizaciones."""
-    
+
     ticker: str = Field(..., description="Symbol del activo")
     interval: IntervalEnum = Field(..., description="Intervalo usado")
-    data: List[OHLCDataPoint] = Field(..., description="Serie temporal OHLC")
+    data: list[OHLCDataPoint] = Field(..., description="Serie temporal OHLC")
     count: int = Field(..., description="Cantidad de puntos de datos", ge=0)
-    
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -129,24 +128,24 @@ class HistoryResponse(BaseModel):
 
 class BatchRequest(BaseModel):
     """Schema de request para batch de cotizaciones."""
-    
-    tickers: List[str] = Field(
+
+    tickers: list[str] = Field(
         ...,
         description="Lista de symbols",
         min_length=1,
         max_length=50
     )
-    
+
     @field_validator('tickers')
     @classmethod
-    def validate_tickers(cls, v: List[str]) -> List[str]:
+    def validate_tickers(cls, v: list[str]) -> list[str]:
         """Validate and normalize ticker list."""
         # Remove duplicates and convert to uppercase
         normalized = list(set(ticker.upper().strip() for ticker in v))
         if not normalized:
             raise ValueError('tickers list cannot be empty after normalization')
         return normalized
-    
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -158,20 +157,20 @@ class BatchRequest(BaseModel):
 
 class BatchQuoteItem(BaseModel):
     """Item individual en respuesta batch."""
-    
+
     ticker: str = Field(..., description="Symbol del activo")
-    quote: Optional[QuoteResponse] = Field(None, description="Cotización (null si no existe)")
-    error: Optional[str] = Field(None, description="Mensaje de error si falla")
+    quote: QuoteResponse | None = Field(None, description="Cotización (null si no existe)")
+    error: str | None = Field(None, description="Mensaje de error si falla")
 
 
 class BatchResponse(BaseModel):
     """Schema de respuesta para batch de cotizaciones."""
-    
-    quotes: List[BatchQuoteItem] = Field(..., description="Lista de cotizaciones")
+
+    quotes: list[BatchQuoteItem] = Field(..., description="Lista de cotizaciones")
     total: int = Field(..., description="Total de items solicitados", ge=0)
     successful: int = Field(..., description="Items exitosos", ge=0)
     failed: int = Field(..., description="Items fallidos", ge=0)
-    
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -207,11 +206,11 @@ class BatchResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     """Schema de respuesta para errores."""
-    
+
     detail: str = Field(..., description="Mensaje de error")
-    error_code: Optional[str] = Field(None, description="Código de error interno")
+    error_code: str | None = Field(None, description="Código de error interno")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Timestamp del error")
-    
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -225,12 +224,12 @@ class ErrorResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """Schema de respuesta para health check."""
-    
+
     status: str = Field(..., description="Estado del servicio")
     version: str = Field(..., description="Versión de la API")
     repository: str = Field(..., description="Nombre del repositorio")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Timestamp de respuesta")
-    
+
     model_config = {
         "json_schema_extra": {
             "example": {

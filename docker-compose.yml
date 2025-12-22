@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg14
+    environment:
+      - POSTGRES_USER=opa
+      - POSTGRES_PASSWORD=opa_password
+      - POSTGRES_DB=quotes
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  opa-quotes-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://opa:opa_password@postgres:5432/quotes
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+    command: poetry run uvicorn opa_quotes_api.main:app --host 0.0.0.0 --port 8000 --reload
+
+
+volumes:
+  postgres_data:
+  redis_data:

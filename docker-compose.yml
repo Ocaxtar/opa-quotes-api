@@ -1,40 +1,63 @@
-version: '3.8'
+version: '3.9'
 
 services:
-  postgres:
-    image: timescale/timescaledb:latest-pg14
-    environment:
-      - POSTGRES_USER=opa
-      - POSTGRES_PASSWORD=opa_password
-      - POSTGRES_DB=quotes
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   redis:
     image: redis:7-alpine
+    container_name: opa-quotes-api-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: opa-quotes-api-postgres
+    environment:
+      POSTGRES_USER: opa
+      POSTGRES_PASSWORD: opa_password
+      POSTGRES_DB: quotes
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opa -d quotes"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   opa-quotes-api:
     build: .
+    container_name: opa-quotes-api
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://opa:opa_password@postgres:5432/quotes
-      - REDIS_URL=redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://opa:opa_password@postgres:5432/quotes
+      REDIS_URL: redis://redis:6379/0
+      LOG_LEVEL: INFO
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
     volumes:
       - ./src:/app/src
-      - ./config:/app/config
     command: poetry run uvicorn opa_quotes_api.main:app --host 0.0.0.0 --port 8000 --reload
-
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local

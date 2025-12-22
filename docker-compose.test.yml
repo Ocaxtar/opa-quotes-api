@@ -1,0 +1,37 @@
+version: '3.9'
+
+# Docker Compose para testing - configuración aislada
+services:
+  redis-test:
+    image: redis:7-alpine
+    container_name: opa-quotes-api-redis-test
+    ports:
+      - "6380:6379"  # Puerto diferente para no conflictuar
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    tmpfs:
+      - /data  # Datos en memoria, no persistentes para tests
+
+  postgres-test:
+    image: timescale/timescaledb:latest-pg16
+    container_name: opa-quotes-api-postgres-test
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: test_quotes
+    ports:
+      - "5433:5432"  # Puerto diferente para no conflictuar
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_quotes"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    tmpfs:
+      - /var/lib/postgresql/data  # Datos en memoria para tests más rápidos
+
+networks:
+  default:
+    name: opa-quotes-api-test-network

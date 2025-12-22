@@ -74,30 +74,58 @@ poetry install
 
 # Configurar variables de entorno
 cp .env.example .env
-# Editar .env con credenciales TimescaleDB y Redis
+# Editar .env con credenciales si es necesario
 
-# Levantar servicios locales
+# Levantar servicios locales (Redis + PostgreSQL/TimescaleDB)
 docker-compose up -d
 
-# Verificar conexión
-poetry run python -m opa_quotes_api.health_check
+# Verificar que los servicios están operativos
+docker-compose ps
+
+# Ejecutar la aplicación
+poetry run python -m opa_quotes_api.dev_server
 ```
 
-### Docker Compose (Desarrollo)
+La API estará disponible en:
+- **API**: http://localhost:8000
+- **Docs**: http://localhost:8000/docs
+- **Health**: http://localhost:8000/health
 
-```yaml
-services:
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-  
-  api:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      - TIMESCALE_HOST=host.docker.internal
+### Docker Compose
+
+**Desarrollo local** (`docker-compose.yml`):
+```bash
+# Iniciar todos los servicios
+docker-compose up -d
+
+# Ver logs
+docker-compose logs -f
+
+# Detener servicios
+docker-compose down
+
+# Limpiar datos
+docker-compose down -v
+```
+
+**Testing** (`docker-compose.test.yml`):
+```bash
+# Iniciar servicios de test (puertos diferentes)
+docker-compose -f docker-compose.test.yml up -d
+
+# Ejecutar tests
+poetry run pytest
+
+# Limpiar
+docker-compose -f docker-compose.test.yml down -v
+```
+
+**Servicios incluidos**:
+- **Redis**: Puerto 6379 (dev) / 6380 (test) - Cache de cotizaciones
+- **PostgreSQL + TimescaleDB**: Puerto 5432 (dev) / 5433 (test) - Base de datos
+- **API**: Puerto 8000 - FastAPI con hot reload
+
+Ver [init-db/README.md](init-db/README.md) para más detalles sobre la configuración de Docker.
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       - redis

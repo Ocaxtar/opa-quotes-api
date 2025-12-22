@@ -227,7 +227,25 @@ poetry run pytest --cov=opa_quotes_api --cov-report=html
 # 1. Añadir comentario de cierre (template obligatorio)
 # 2. Incluir prefijo: 🤖 Agente opa-quotes-api:
 # 3. Listar cambios, commits, tests pasados
-# 4. Solo ENTONCES: mover a "Done"
+# 4. Hacer merge a main de la rama feature
+# 5. Solo ENTONCES: mover a "Done"
+```
+
+**Proceso de merge**:
+```bash
+# 1. Asegurarse de que todos los tests pasan
+poetry run pytest -v
+
+# 2. Cambiar a main y hacer merge
+git checkout main
+git merge --no-ff oscarcalvo/OPA-XXX-feature-name
+
+# 3. Push a origin
+git push origin main
+
+# 4. Eliminar rama feature (opcional)
+git branch -d oscarcalvo/OPA-XXX-feature-name
+git push origin --delete oscarcalvo/OPA-XXX-feature-name
 ```
 
 **Template de comentario de cierre**:

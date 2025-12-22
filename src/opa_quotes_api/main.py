@@ -65,8 +65,9 @@ async def health_check():
 
 
 # Import routers
-# from opa_quotes_api.routers import example_router
-# app.include_router(example_router.router)
+from opa_quotes_api.routers import quotes
+
+app.include_router(quotes.router)
 
 
 if __name__ == "__main__":

@@ -72,7 +72,7 @@ app.include_router(quotes.router)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "main:app",
+        "opa_quotes_api.main:app",
         host="0.0.0.0",
         port=8000,
         reload=True

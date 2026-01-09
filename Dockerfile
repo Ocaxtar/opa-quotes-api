@@ -21,6 +21,9 @@ RUN poetry config virtualenvs.create false \
 # Copy application code
 COPY src/ ./src/
 
+# Set PYTHONPATH for module discovery
+ENV PYTHONPATH=/app/src
+
 # Create non-root user
 RUN useradd -m -u 1000 opa && chown -R opa:opa /app
 USER opa

@@ -32,4 +32,4 @@ EXPOSE 8000
 HEALTHCHECK CMD curl --fail http://localhost:8000/health || exit 1
 
 # Run application
-CMD ["poetry", "run", "python", "-m", "opa_quotes_api.main"]
+CMD ["python", "-m", "opa_quotes_api.main"]

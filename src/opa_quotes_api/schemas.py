@@ -17,6 +17,54 @@ class IntervalEnum(str, Enum):
     ONE_DAY = "1d"
 
 
+class QuoteCreate(BaseModel):
+    """Schema para crear una cotización."""
+
+    ticker: str = Field(..., description="Symbol del activo", min_length=1, max_length=10)
+    timestamp: datetime = Field(..., description="Timestamp de la cotización")
+    price: Decimal = Field(..., description="Precio de la cotización", ge=0)
+    volume: int = Field(..., description="Volumen negociado", ge=0)
+    source: str = Field(..., description="Fuente de datos", max_length=50)
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "ticker": "AAPL",
+                "timestamp": "2026-01-10T09:11:31.294777Z",
+                "price": 259.35,
+                "volume": 318089,
+                "source": "yfinance"
+            }
+        }
+    }
+
+
+class QuoteBatchCreate(BaseModel):
+    """Schema para crear múltiples cotizaciones en batch."""
+
+    quotes: list[QuoteCreate] = Field(
+        ...,
+        description="Lista de cotizaciones a crear",
+        min_length=1
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "quotes": [
+                    {
+                        "ticker": "AAPL",
+                        "timestamp": "2026-01-10T09:11:31.294777Z",
+                        "price": 259.35,
+                        "volume": 318089,
+                        "source": "yfinance"
+                    }
+                ]
+            }
+        }
+    }
+
+
 class QuoteResponse(BaseModel):
     """Schema de respuesta para cotización individual."""
 

@@ -22,7 +22,7 @@ redis = ">=5.0"
 opa-shared-utils = { git = "https://github.com/Ocaxtar/opa-shared-utils.git", tag = "v0.1.1" }
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.0"
+pytest = "^9.0"
 pytest-cov = "^4.1"
 pytest-asyncio = "^0.23"
 ruff = "^0.1"

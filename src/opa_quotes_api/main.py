@@ -67,8 +67,8 @@ async def health_check():
     }
 
 
-# Include routers
-app.include_router(quotes.router)
+# Include routers with /v1 prefix
+app.include_router(quotes.router, prefix="/v1")
 
 
 if __name__ == "__main__":

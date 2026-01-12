@@ -138,13 +138,8 @@ async def create_quotes_batch(
     Returns:
         dict with created count
     """
-    # For now, just acknowledge receipt
-    # Full implementation requires service.create_batch() method
-    return {
-        "status": "success",
-        "created": len(batch.quotes),
-        "quotes": [q.ticker for q in batch.quotes]
-    }
+    result = await service.create_batch(batch.quotes)
+    return result
 
 
 @router.get(

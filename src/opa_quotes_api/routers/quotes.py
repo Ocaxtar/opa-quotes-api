@@ -94,7 +94,7 @@ async def get_history(
     return response
 
 
-@router.post(
+@router.get(
     "/batch",
     response_model=BatchResponse,
     summary="Get multiple quotes",
@@ -119,7 +119,7 @@ async def get_batch_quotes(
 
 
 @router.post(
-    "/quotes/batch",
+    "/batch",
     status_code=201,
     summary="Create multiple quotes",
     description="Create multiple quotes in a single batch request (for storage publisher)",

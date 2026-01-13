@@ -241,6 +241,50 @@ poetry run locust -f tests/performance/locustfile.py --host=http://localhost:800
 
 ### Contratos de API
 
+Este servicio implementa los siguientes contratos formales:
+
+#### POST /quotes/batch
+
+**Contract**: [Quotes Batch Contract](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/contracts/apis/quotes-batch.md)
+
+- **Role**: Consumer
+- **Producer**: opa-quotes-streamer
+- **Invariants**: INV-101 to INV-107 (API guarantees)
+- **Validation**: Unit tests in `tests/test_quotes_batch.py`
+
+**Contract invariants satisfied**:
+- ✅ **INV-101**: Returns 201 if at least 1 quote persists
+- ✅ **INV-102**: Returns 422 for invalid payload
+- ✅ **INV-103**: Response includes `created` count (exact DB row count)
+- ✅ **INV-104**: Commits transaction before returning response
+- ✅ **INV-105**: Returns detailed errors array on partial failure
+
+**Testing contract compliance**:
+```bash
+# Verify contract compliance
+pytest tests/test_quotes_batch.py -v
+
+# Manual verification
+curl -X POST http://localhost:8000/quotes/batch \
+  -H "Content-Type: application/json" \
+  -d '{"quotes":[{"ticker":"AAPL","timestamp":"2026-01-12T10:00:00Z","close":175.23,"source":"yfinance"}]}'
+
+# Expected response (201):
+# {
+#   "status": "success",
+#   "created": 1,
+#   "failed": 0
+# }
+```
+
+**Common validation errors (422)**:
+- Missing required fields (`ticker`, `timestamp`, `close`, `source`)
+- Invalid ticker format (must match `^[A-Z]{1,5}$`)
+- Invalid timestamp (must be ISO 8601 with timezone)
+- Invalid source (must be `yfinance`, `fmp`, or `manual`)
+
+#### Other Contracts
+
 Ver: `OPA_Machine/docs/contracts/apis/quotes-api-contract.md`
 
 **Endpoints estandarizados**:
@@ -358,5 +402,5 @@ Ver: [ROADMAP.md](ROADMAP.md) para detalles completos.
 
 ---
 
-**Última actualización**: 2025-12-22  
+**Última actualización**: 2026-01-13  
 **Mantenedor**: Equipo OPA

@@ -8,6 +8,7 @@ from opa_quotes_api.schemas import (
     BatchResponse,
     HistoryRequest,
     HistoryResponse,
+    QuoteBatchCreate,
     QuoteResponse,
 )
 from opa_quotes_api.services.quote_service import QuoteService
@@ -93,7 +94,7 @@ async def get_history(
     return response
 
 
-@router.post(
+@router.get(
     "/batch",
     response_model=BatchResponse,
     summary="Get multiple quotes",
@@ -115,6 +116,30 @@ async def get_batch_quotes(
     """
     response = await service.get_batch(request)
     return response
+
+
+@router.post(
+    "/batch",
+    status_code=201,
+    summary="Create multiple quotes",
+    description="Create multiple quotes in a single batch request (for storage publisher)",
+)
+async def create_quotes_batch(
+    batch: QuoteBatchCreate,
+    service: QuoteService = Depends(get_quote_service)
+) -> dict:
+    """
+    Create quotes in batch.
+
+    Args:
+        batch: Batch of quotes to create
+        service: Injected QuoteService
+
+    Returns:
+        dict with created count
+    """
+    result = await service.create_batch(batch.quotes)
+    return result
 
 
 @router.get(

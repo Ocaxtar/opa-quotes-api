@@ -11,6 +11,18 @@
 **Proyecto Linear**: opa-quotes-api  
 **Label Linear**: `opa-quotes-api` (sub-tag del grupo "repo")
 
+## 📚 Guías Especializadas (CONSULTAR PRIMERO)
+
+Estas guías del repositorio supervisor contienen instrucciones detalladas que aplican a todos los repositorios del ecosistema:
+
+| Guía | Propósito | Cuándo consultar |
+|------|-----------|------------------|
+| **[workflow-git-linear.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/workflow-git-linear.md)** | Workflow Git+Linear completo | Al trabajar en issues (branch, commit, merge, cierre) |
+| **[multi-workspace-guide.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/multi-workspace-guide.md)** | Arquitectura 20 repos, coordinación | Al crear repos, issues cross-repo, labels Linear |
+| **[code-conventions.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/code-conventions.md)** | Estándares código, testing, CI/CD | Al escribir código, configurar tests, Docker |
+| **[technology-stack.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/technology-stack.md)** | Stack tecnológico consolidado | Al elegir librerías, evaluar rendimiento |
+| **[linear-mcp-quickstart.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/linear-mcp-quickstart.md)** | Errores comunes Linear MCP | Al usar mcp_linear tools (errores, fixes) |
+
 ## Contexto del Módulo
 
 Este repositorio es parte del **Módulo 5 (Cotización)**, uno de los 5 módulos core del ecosistema OPA_Machine. El módulo completo consta de:
@@ -448,6 +460,30 @@ from .models import RealTimeQuote
 git checkout -b oscarcalvo/OPA-188-latest-quote-endpoint
 ```
 
+### 📝 Comentarios vs Descripción en Issues
+
+**PRINCIPIO**: La **descripción** de una issue es la **especificación inicial**. Los **comentarios** son el **registro de progreso**.
+
+| Acción | Tool Correcta | Tool Incorrecta |
+|--------|---------------|-----------------|
+| Reportar avance parcial | `mcp_linear_create_comment()` | ❌ `mcp_linear_update_issue(body=...)` |
+| Reactivar issue cerrada | `mcp_linear_create_comment()` + `update_issue(state="In Progress")` | ❌ Solo modificar descripción |
+| Documentar error encontrado | `mcp_linear_create_comment()` | ❌ Editar descripción |
+| Añadir diagnóstico | `mcp_linear_create_comment()` | ❌ Modificar descripción |
+| Cerrar con resumen | `mcp_linear_create_comment()` + `update_issue(state="Done")` | ❌ Solo cambiar estado |
+
+**¿Por qué?**:
+- **Trazabilidad**: Comentarios tienen timestamps automáticos → historial auditable
+- **Notificaciones**: Comentarios notifican a watchers → mejor colaboración
+- **Reversibilidad**: Descripción original preservada → contexto no se pierde
+- **Multi-agente**: Varios agentes pueden comentar sin conflictos de edición
+
+**¿Cuándo SÍ modificar descripción?**:
+- ✅ Corregir typos en la especificación original
+- ✅ Añadir criterios de aceptación faltantes (antes de empezar trabajo)
+- ✅ Actualizar estimación inicial
+- ❌ NUNCA para reportar progreso, errores o reactivaciones
+
 ## Testing Patterns
 
 ### 1. Tests Unitarios (Mock Dependencies)
@@ -498,142 +534,16 @@ def timescale_engine():
     # Usar docker-compose.test.yml
     return create_engine("postgresql://test_user:test_pass@localhost:5433/test_db")
 
+@pytest.fixture
+def test_client():
+    return TestClient(app)
+
 @pytest.mark.asyncio
-async def test_get_latest_quote_integration(timescale_engine):
-    # Seed data
-    with timescale_engine.connect() as conn:
-        conn.execute(
-            RealTimeQuote.__table__.insert(),
-            {"ticker": "AAPL", "timestamp": "2025-12-22 10:30:00", "close": 150.90}
-        )
-    
-    # Test endpoint
-    client = TestClient(app)
-    response = client.get("/quotes/AAPL/latest")
-    
-    assert response.status_code == 200
-    assert response.json()["close"] == 150.90
+async def test_full_flow(test_client, timescale_engine):
+    # Seed → Request → Validate
+    ...
 ```
-
-## Contratos de Integración
-
-### Upstream: opa-quotes-storage
-
-**Contrato**: Acceso lectura-only a `quotes.real_time`
-
-```python
-# Query esperada para última cotización
-SELECT ticker, timestamp, open, high, low, close, volume, bid, ask
-FROM quotes.real_time
-WHERE ticker = %(ticker)s
-ORDER BY timestamp DESC
-LIMIT 1
-```
-
-**Índices requeridos**:
-- `idx_ticker_timestamp` en `(ticker, timestamp DESC)`
-
-### Downstream: Módulos Consumidores
-
-**opa-capacity-compute**: Consume históricos para análisis MIPL  
-**opa-prediction-features**: Consume para feature engineering
-
-**Contrato API**:
-- Ver: `OPA_Machine/docs/contracts/apis/quotes-api-contract.md`
-- Schemas Pydantic deben ser compatibles con contratos
-
-## Troubleshooting
-
-### Error: "Connection to TimescaleDB refused"
-
-```bash
-# Verificar que opa-quotes-storage esté operativo
-docker ps | grep timescale
-
-# Verificar variables de entorno
-cat .env | grep TIMESCALE
-
-# Test de conexión manual
-psql -h localhost -U opa_user -d opa_quotes -c "SELECT 1"
-```
-
-### Error: "Redis connection timeout"
-
-```bash
-# Verificar Redis operativo
-docker ps | grep redis
-redis-cli ping  # Debe responder "PONG"
-
-# Verificar configuración
-cat .env | grep REDIS_URL
-```
-
-### Performance degradado
-
-```bash
-# Verificar cache hit rate
-curl http://localhost:8000/metrics | grep cache_hit_rate
-
-# Verificar slow queries en TimescaleDB
-psql -U opa_user -d opa_quotes -c "SELECT query, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10"
-
-# Verificar conexiones abiertas
-psql -U opa_user -d opa_quotes -c "SELECT count(*) FROM pg_stat_activity"
-```
-
-## Métricas y Monitorización
-
-### Prometheus Metrics
-
-```python
-# src/opa_quotes_api/metrics.py
-from prometheus_client import Counter, Histogram
-
-quote_requests_total = Counter(
-    'quote_requests_total',
-    'Total de requests de cotizaciones',
-    ['ticker', 'endpoint']
-)
-
-quote_latency_seconds = Histogram(
-    'quote_latency_seconds',
-    'Latencia de requests',
-    ['endpoint']
-)
-
-cache_hits_total = Counter(
-    'cache_hits_total',
-    'Total de cache hits',
-    ['ticker']
-)
-```
-
-### Logging
-
-```python
-# Usar pipeline_logger del supervisor
-from shared.utils.pipeline_logger import PipelineLogger
-
-logger = PipelineLogger(
-    pipeline_name="opa-quotes-api",
-    repository="opa-quotes-api"
-)
-
-logger.log_info("Quote request received", extra={"ticker": "AAPL"})
-logger.log_error("Cache miss", extra={"ticker": "AAPL"})
-```
-
-## Referencias
-
-**Supervisor**:
-- Arquitectura: `OPA_Machine/docs/architecture/ecosystem-overview.md`
-- Contratos: `OPA_Machine/docs/contracts/apis/quotes-api-contract.md`
-
-**Repos relacionados**:
-- [opa-quotes-storage](https://github.com/Ocaxtar/opa-quotes-storage)
-- [opa-quotes-streamer](https://github.com/Ocaxtar/opa-quotes-streamer)
 
 ---
 
-📝 **Este documento debe actualizarse conforme evolucione el repositorio**  
-**Última sincronización con supervisor**: 2025-12-22
+**Última sincronización con supervisor**: 2026-01-13

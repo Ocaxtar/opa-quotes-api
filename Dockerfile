@@ -6,6 +6,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
@@ -20,7 +21,9 @@ RUN poetry config virtualenvs.create false \
 
 # Copy application code
 COPY src/ ./src/
-COPY config/ ./config/
+
+# Set PYTHONPATH for module discovery
+ENV PYTHONPATH=/app/src
 
 # Create non-root user
 RUN useradd -m -u 1000 opa && chown -R opa:opa /app
@@ -33,4 +36,4 @@ EXPOSE 8000
 HEALTHCHECK CMD curl --fail http://localhost:8000/health || exit 1
 
 # Run application
-CMD ["poetry", "run", "python", "-m", "opa_quotes_api.main"]
+CMD ["python", "-m", "opa_quotes_api.main"]

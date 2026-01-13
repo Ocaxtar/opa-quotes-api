@@ -32,6 +32,23 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
+    # CORS
+    environment: str = "development"
+    cors_origins: list[str] = ["*"]
+
+    @property
+    def effective_cors_origins(self) -> list[str]:
+        """Return CORS origins based on environment."""
+        if self.environment == "production":
+            return [
+                "https://opa-dashboard.production.com",
+                "https://app.opa-machine.com"
+            ]
+        elif self.environment == "staging":
+            return ["https://opa-dashboard.staging.com"]
+        else:  # development/integration
+            return ["*"]
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

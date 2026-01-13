@@ -208,6 +208,43 @@ class QuoteRepository:
             logger.error(f"Error getting batch quotes: {e}")
             return []
 
+    async def create_batch(self, quotes: list) -> int:
+        """
+        Create multiple quotes in batch.
+
+        Args:
+            quotes: List of QuoteCreate objects
+
+        Returns:
+            Number of quotes created
+        """
+        try:
+            created_count = 0
+            for quote_data in quotes:
+                # Convert single price to OHLC (for real-time data)
+                quote = RealTimeQuote(
+                    ticker=quote_data.ticker.upper(),
+                    timestamp=quote_data.timestamp,
+                    open=quote_data.price,
+                    high=quote_data.price,
+                    low=quote_data.price,
+                    close=quote_data.price,
+                    volume=quote_data.volume,
+                    bid=None,
+                    ask=None
+                )
+                self.db.add(quote)
+                created_count += 1
+
+            await self.db.commit()
+            logger.info(f"Created {created_count} quotes in batch")
+            return created_count
+
+        except Exception as e:
+            logger.error(f"Error creating batch quotes: {e}")
+            await self.db.rollback()
+            raise
+
     async def list_tickers(
         self,
         limit: int = 100,

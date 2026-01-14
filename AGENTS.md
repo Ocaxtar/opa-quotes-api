@@ -23,90 +23,6 @@ Estas guías del repositorio supervisor contienen instrucciones detalladas que a
 | **[technology-stack.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/technology-stack.md)** | Stack tecnológico consolidado | Al elegir librerías, evaluar rendimiento |
 | **[linear-mcp-quickstart.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/linear-mcp-quickstart.md)** | Errores comunes Linear MCP | Al usar mcp_linear tools (errores, fixes) |
 
-## Contexto del Módulo
-
-Este repositorio es parte del **Módulo 5 (Cotización)**, uno de los 5 módulos core del ecosistema OPA_Machine. El módulo completo consta de:
-
-1. **opa-quotes-streamer** (Rust) → Ingestión streaming tiempo real
-2. **opa-quotes-storage** (Python) → Almacenamiento TimescaleDB
-3. **opa-quotes-api** (Python) → **ESTE REPOSITORIO** → API REST + WebSockets
-
-**Responsabilidad de este servicio**: Exponer datos de cotizaciones mediante API REST y streaming WebSocket para consumo de módulos downstream (Capacidad, Predicción).
-
-## Stack Tecnológico
-
-| Categoría | Tecnología | Versión | Rationale |
-|-----------|------------|---------|-----------|
-| Framework | FastAPI | 0.104+ | API async de alto rendimiento, OpenAPI automático |
-| ORM | SQLAlchemy | 2.0+ | ORM maduro con soporte async para TimescaleDB |
-| DB Driver | psycopg2-binary | 2.9+ | Driver PostgreSQL estable |
-| Cache | Redis (redis-py) | 7+ | Caching de última cotización (TTL 5s) |
-| WebSockets | websockets | 12+ | Streaming asíncrono para clientes real-time |
-| Validation | Pydantic | 2.5+ | Validación de schemas y serialización |
-| Testing | pytest + pytest-asyncio | 7.4+ | Tests async para FastAPI |
-| Monitoring | prometheus-client | 0.18+ | Métricas personalizadas |
-
-**Decisiones clave**:
-- **FastAPI**: 3-5x más rápido que Flask, typing nativo, async/await first-class
-- **Redis**: Cache TTL 5s para reducir carga en TimescaleDB
-- **Pydantic v2**: 5-50x más rápido que v1 en serialización
-
-## Arquitectura del Servicio
-
-### Flujo de Datos
-
-```
-Cliente (curl/SDK)
-      │
-      ├─► GET /quotes/{ticker}/latest
-      ├─► GET /quotes/{ticker}/history
-      └─► POST /quotes/batch
-            │
-            ▼
-      [FastAPI Router]
-            │
-            ▼
-      [Quote Service]
-         │        │
-         ▼        ▼
-    [Cache]  [Repository]
-    (Redis)   (TimescaleDB)
-         │        │
-         └────┬───┘
-              ▼
-         Response JSON
-```
-
-### Componentes
-
-**1. Routers** (`routers/quotes.py`):
-- Endpoints REST estandarizados
-- Validación de parámetros con Pydantic
-- Manejo de errores HTTP
-
-**2. Services** (`services/quote_service.py`):
-- Lógica de negocio (check cache → query DB)
-- Agregaciones (OHLC en intervalos)
-- Transformaciones de datos
-
-**3. Cache** (`services/cache_service.py`):
-- Redis con TTL 5 segundos
-- Key pattern: `quote:{ticker}:latest`
-- Invalidación on-demand
-
-**4. Repository** (`repository.py`):
-- Abstracción queries TimescaleDB
-- Query optimization (time_bucket, índices)
-- Connection pooling
-
-**5. Models** (`models.py`):
-- SQLAlchemy models para `quotes.real_time`
-- Mapeo a hypertable de TimescaleDB
-
-**6. Schemas** (`schemas.py`):
-- Pydantic schemas para request/response
-- Validación de payloads
-
 ## 🔧 Gestión de Tools MCP
 
 ### Activación de Tools Linear/GitHub
@@ -134,335 +50,25 @@ Algunas herramientas MCP (Model Context Protocol) requieren activación explíci
 <invoke name="activate_pull_request_review_tools" />
 ```
 
-#### Patrón de Uso Seguro
-
-**✅ CORRECTO**:
-1. Detectar necesidad de tool (ej: crear comentario en Linear)
-2. Activar categoría de tools
-3. Usar tool específico
-
-**❌ INCORRECTO**:
-1. Intentar usar tool sin activar
-2. Recibir error "Tool not found"
-3. Continuar sin completar acción
-
-#### Manejo de Errores
-
-Si recibes `Tool not found or not activated`:
-1. **NO continues** sin completar la acción
-2. Activa la categoría de tools correspondiente
-3. **Reintenta** la operación
-4. Si persiste error, devuelve control al usuario
-
-### Tools Siempre Disponibles
-
-Estas tools NO requieren activación:
-- `mcp_linear_get_issue`, `mcp_linear_list_comments`, `mcp_linear_list_issues`
-- `file_search`, `grep_search`, `read_file`, `replace_string_in_file`
-- `run_in_terminal`, `get_terminal_output`
-- Git commands via terminal
-
 ## 🛡️ Validación de Convenciones
 
-### Checkpoint Pre-Acción
-
-Antes de ejecutar acciones críticas, **VALIDA** que cumples las convenciones de este repositorio:
-
-#### ✅ Pre-Commit Checklist
-
-- [ ] **Mensaje de commit** incluye identificador de issue (ej: `OPA-232: ...`)
-- [ ] **Branch** sigue convención: `oscarcalvo/OPA-XXX-descripcion-corta`
-- [ ] **Tests** pasan localmente (`poetry run pytest`)
-- [ ] **Linter** sin errores
-- [ ] **Issue en Linear** existe y está en estado correcto
-
-#### ✅ Pre-Issue Close Checklist
-
-- [ ] **Comentario de cierre** añadido con prefijo `🤖 Agente opa-quotes-api:`
-- [ ] **Pre-checks** documentados en comentario
-- [ ] **Problema identificado** explicado
-- [ ] **Solución implementada** detallada
-- [ ] **Commits** referenciados con hash y link
-- [ ] **Verificación** realizada y documentada
-- [ ] **Branch mergeada** y eliminada (local + remota)
-
-#### ✅ Pre-PR Checklist
-
-- [ ] **Título** incluye identificador de issue
-- [ ] **Descripción** explica cambios y rationale
-- [ ] **Tests** incluidos para nuevas features
-- [ ] **Docs** actualizadas si API cambió
-
-### Detección de Violaciones
-
-Si detectas que estás a punto de violar una convención:
-
-1. **DETENTE** inmediatamente
-2. **INFORMA** al usuario del problema detectado
-3. **SUGIERE** corrección
-4. **ESPERA** confirmación del usuario antes de continuar
-
-**Ejemplo**:
-```
-⚠️ DETECCIÓN DE VIOLACIÓN
-
-Convención: "Commits DEBEN referenciar issue Linear"
-Acción planeada: git commit -m "Fix bug"
-Problema: Mensaje sin identificador OPA-XXX
-
-¿Deseas que corrija el mensaje a "OPA-232: Fix bug"?
-```
-
-### Recuperación ante Violaciones
-
-Si ya violaste una convención:
-
-1. **RECONOCE** el error
-2. **CORRIGE** si es posible:
-   - Commit sin issue: `git commit --amend -m "OPA-XXX: ..."`
-   - Issue cerrado sin comentario: Añadir comentario retroactivamente
-   - Branch sin mergear: `git checkout main && git merge --squash ...`
-3. **DOCUMENTA** la corrección en Linear/GitHub
-
-## Flujo de Trabajo de Desarrollo
-
-### 1. Setup Inicial
-
-```bash
-# Clonar repositorio
-git clone https://github.com/Ocaxtar/opa-quotes-api.git
-cd opa-quotes-api
-
-# Crear entorno virtual con Poetry
-poetry install
-
-# Configurar variables de entorno
-cp .env.example .env
-# Editar .env con credenciales TimescaleDB y Redis
-
-# Levantar servicios locales (Redis)
-docker-compose up -d
-
-# Verificar conectividad
-poetry run python -c "from opa_quotes_api.dependencies import get_db; print('DB OK')"
-poetry run python -c "import redis; r=redis.Redis(host='localhost'); print(r.ping())"
-```
-
-### 2. Implementar Feature
-
-**Workflow típico**:
-
-```bash
-# 1. Crear rama desde main
-git checkout -b oscarcalvo/OPA-XXX-feature-name
-
-# 2. Crear router endpoint
-# Editar: src/opa_quotes_api/routers/quotes.py
-
-@router.get("/quotes/{ticker}/latest", response_model=QuoteResponse)
-async def get_latest_quote(
-    ticker: str,
-    service: QuoteService = Depends(get_quote_service)
-):
-    quote = await service.get_latest(ticker)
-    if not quote:
-        raise HTTPException(status_code=404, detail="Ticker not found")
-    return quote
-
-# 3. Implementar servicio
-# Editar: src/opa_quotes_api/services/quote_service.py
-
-async def get_latest(self, ticker: str) -> Optional[QuoteResponse]:
-    # Check cache
-    cached = await self.cache.get(f"quote:{ticker}:latest")
-    if cached:
-        return QuoteResponse.model_validate_json(cached)
-    
-    # Query DB
-    quote = await self.repository.get_latest(ticker)
-    if quote:
-        # Cache result
-        await self.cache.set(
-            f"quote:{ticker}:latest",
-            quote.model_dump_json(),
-            ex=5  # TTL 5 segundos
-        )
-    return quote
-
-# 4. Añadir tests
-poetry run pytest tests/unit/test_quote_service.py -v
-
-# 5. Commit con convención
-git add .
-git commit -m "OPA-XXX: Implement GET /quotes/{ticker}/latest endpoint"
-git push origin oscarcalvo/OPA-XXX-feature-name
-```
-
-### 3. Testing
-
-**Tests unitarios** (mock Redis + TimescaleDB):
-```python
-# tests/unit/test_quote_service.py
-@pytest.mark.asyncio
-async def test_get_latest_quote_from_cache(mock_cache, mock_repository):
-    service = QuoteService(cache=mock_cache, repository=mock_repository)
-    quote = await service.get_latest("AAPL")
-    
-    assert quote.ticker == "AAPL"
-    mock_cache.get.assert_called_once_with("quote:AAPL:latest")
-    mock_repository.get_latest.assert_not_called()  # Cache hit
-```
-
-**Tests de integración** (TimescaleDB + Redis reales):
-```python
-# tests/integration/test_quotes_api.py
-@pytest.mark.asyncio
-async def test_get_latest_quote_integration(test_client, timescale_db, redis_db):
-    # Seed data
-    await timescale_db.insert_quote("AAPL", timestamp=..., close=150.90)
-    
-    # Request
-    response = test_client.get("/quotes/AAPL/latest")
-    
-    assert response.status_code == 200
-    assert response.json()["ticker"] == "AAPL"
-    assert response.json()["close"] == 150.90
-```
-
-**Ejecutar tests**:
-```bash
-# Solo unitarios (fast)
-poetry run pytest tests/unit/ -v
-
-# Integración (requiere Docker)
-docker-compose -f docker-compose.test.yml up -d
-poetry run pytest tests/integration/ -v
-
-# Con coverage
-poetry run pytest --cov=opa_quotes_api --cov-report=html
-```
-
-### 4. Manejo de Issues en Linear
-
-**Antes de empezar**:
-```bash
-# 1. Leer issue completa en Linear (incluir TODOS los comentarios)
-# 2. Verificar label `opa-quotes-api` presente
-# 3. Mover a "In Progress"
-```
-
-**Al completar - Workflow de Merge (OBLIGATORIO)**:
-
-```bash
-# 1. Asegurar que todos los cambios están commiteados
-git status  # Debe estar limpio
-
-# 2. Actualizar main local
-git checkout main
-git pull origin main
-
-# 3. Mergear branch a main (squash para historia limpia)
-git merge --squash oscarcalvo/OPA-XXX-feature-name
-
-# 4. Commit final con mensaje de issue
-git commit -m "OPA-XXX: Descripción completa de la feature/fix"
-
-# 5. Pushear a GitHub
-git push origin main
-
-# 6. Eliminar branch local y remota
-git branch -d oscarcalvo/OPA-XXX-feature-name
-git push origin --delete oscarcalvo/OPA-XXX-feature-name 2>/dev/null || true
-
-# 7. IMPORTANTE: Añadir comentario de cierre en Linear con acciones realizas y prefijo 🤖 Agente opa-quotes-api: 
-# 8. Solo ENTONCES: Mover a "Done"
-```
-
-**⚠️ REGLA CRÍTICA**: NO cerrar issue si la branch no está mergeada. Ramas sin mergear = trabajo perdido.
-
-**Template de comentario de cierre**:
-```markdown
-🤖 Agente opa-quotes-api: Issue resuelta
-
-**Pre-checks**:
-- [x] Leídos TODOS los comentarios
-- [x] Verificadas dependencias mencionadas
-- [x] Sin instrucciones contradictorias
-
-**Cambios realizados**:
-- [x] Implementado endpoint GET /quotes/{ticker}/latest
-- [x] Añadido caching Redis (TTL 5s)
-- [x] Tests unitarios (12 OK, 90% coverage)
-
-**Commits**:
-- Hash: abc1234
-- Mensaje: "OPA-XXX: Implement GET /quotes/{ticker}/latest endpoint"
-- Link: https://github.com/Ocaxtar/opa-quotes-api/commit/abc1234
-
-**Verificación**:
-- [x] pytest pasado (12/12 tests)
-- [x] Linter sin errores
-- [x] Commit pusheado a GitHub
-- [x] Branch mergeada y eliminada
-
-Issue cerrada.
-```
-
-## Convenciones del Repositorio
-
-### Nomenclatura
-
-**Archivos**:
-- `snake_case.py` para módulos
-- `PascalCase` para clases
-- `UPPER_CASE.md` para docs root
-
-**Funciones/Variables**:
-```python
-# ✅ Correcto
-async def get_latest_quote(ticker: str) -> QuoteResponse:
-    cache_key = f"quote:{ticker}:latest"
-    
-# ❌ Incorrecto
-async def GetLatestQuote(Ticker: str):  # PascalCase en función
-    CacheKey = ...  # PascalCase en variable
-```
-
-**Imports**:
-```python
-# ✅ Correcto (absolutos desde package root)
-from opa_quotes_api.services import QuoteService
-from opa_quotes_api.models import RealTimeQuote
-
-# ❌ Incorrecto (relativos)
-from ..services import QuoteService
-from .models import RealTimeQuote
-```
-
-### Git Workflow
-
-**Mensajes de commit**:
-```bash
-# Formato: OPA-XXX: <verbo imperativo> <descripción>
-
-✅ "OPA-188: Implement GET /quotes/{ticker}/latest endpoint"
-✅ "OPA-189: Add Redis caching for last quote"
-✅ "OPA-190: Fix race condition in WebSocket heartbeat"
-
-❌ "Added endpoint"  # Sin identificador Linear
-❌ "OPA-188: se implementó el endpoint"  # No imperativo
-❌ "OPA-188: implemented the endpoint for getting latest quotes and also added caching"  # Demasiado largo
-```
-
-**Ramas**:
-```bash
-# Formato: {username}/OPA-{id}-{descripcion-corta}
-git checkout -b oscarcalvo/OPA-188-latest-quote-endpoint
-```
-
-### 📝 Comentarios vs Descripción en Issues
+**REGLA CRÍTICA**: Antes de ejecutar acciones que modifican estado (commits, PRs, issues Done), validar cumplimiento de convenciones.
+
+### Convenciones No Negociables
+
+| Convención | Requisito | Documento |
+|------------|-----------|-----------|
+| **Commits** | DEBEN incluir referencia a issue (`OPA-XXX`) en mensaje | [workflow-git-linear.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/workflow-git-linear.md) |
+| **Issues** | DEBEN crearse en Linear ANTES de implementar fix | [workflow-git-linear.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/workflow-git-linear.md) |
+| **Branches** | DEBEN seguir patrón `username/opa-xxx-descripcion` | [workflow-git-linear.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/workflow-git-linear.md) |
+| **PRs** | DEBEN enlazar a issue en descripción | [workflow-git-linear.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/workflow-git-linear.md) |
+| **Issues Done** | DEBEN tener tests ejecutados y pasando | [code-conventions.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/code-conventions.md) |
+
+## 📝 Regla Crítica: Comentarios vs Descripción en Issues
 
 **PRINCIPIO**: La **descripción** de una issue es la **especificación inicial**. Los **comentarios** son el **registro de progreso**.
+
+**Comportamiento requerido**:
 
 | Acción | Tool Correcta | Tool Incorrecta |
 |--------|---------------|-----------------|
@@ -478,72 +84,106 @@ git checkout -b oscarcalvo/OPA-188-latest-quote-endpoint
 - **Reversibilidad**: Descripción original preservada → contexto no se pierde
 - **Multi-agente**: Varios agentes pueden comentar sin conflictos de edición
 
-**¿Cuándo SÍ modificar descripción?**:
-- ✅ Corregir typos en la especificación original
-- ✅ Añadir criterios de aceptación faltantes (antes de empezar trabajo)
-- ✅ Actualizar estimación inicial
-- ❌ NUNCA para reportar progreso, errores o reactivaciones
+## ⚠️ Validación Pre-cierre de Issue (CRÍTICO)
 
-## Testing Patterns
+**REGLA DE ORO**: Si un archivo NO está en GitHub en rama `main`, la issue NO está "Done".
 
-### 1. Tests Unitarios (Mock Dependencies)
+### Checklist OBLIGATORIO antes de mover issue a "Done"
 
-```python
-# tests/unit/test_quote_service.py
-import pytest
-from unittest.mock import AsyncMock, Mock
+```bash
+# 0. LEER COMENTARIOS DE LA ISSUE (PRIMERO)
+# - Revisar TODOS los comentarios (especialmente los más recientes)
+# - Verificar que no hay instrucciones contradictorias
 
-@pytest.fixture
-def mock_cache():
-    cache = AsyncMock()
-    cache.get.return_value = None  # Cache miss
-    return cache
+# 1. Verificar estado de git
+git status  # Debe estar limpio
 
-@pytest.fixture
-def mock_repository():
-    repo = AsyncMock()
-    repo.get_latest.return_value = QuoteResponse(
-        ticker="AAPL",
-        timestamp="2025-12-22T10:30:00Z",
-        close=150.90
-    )
-    return repo
+# 2. Confirmar que archivos mencionados en la issue EXISTEN
+ls ruta/al/archivo-nuevo.md
 
-@pytest.mark.asyncio
-async def test_get_latest_quote_cache_miss(mock_cache, mock_repository):
-    service = QuoteService(cache=mock_cache, repository=mock_repository)
-    quote = await service.get_latest("AAPL")
-    
-    assert quote.ticker == "AAPL"
-    mock_repository.get_latest.assert_called_once_with("AAPL")
-    mock_cache.set.assert_called_once()  # Cached after query
+# 3. Commitear con mensaje correcto
+git add [archivos]
+git commit -m "OPA-XXX: Descripción clara"
+
+# 4. Pushear a GitHub
+git push origin main
+# O si trabajas en rama:
+git push origin <nombre-rama>
+
+# 5. VERIFICAR en GitHub web que commit aparece
+
+# 6. Si trabajaste en rama feature: MERGEAR a main
+git checkout main
+git pull origin main
+git merge --squash <nombre-rama>
+git commit -m "OPA-XXX: Descripción completa"
+git push origin main
+
+# 7. Eliminar branch (local + remota)
+git branch -d <nombre-rama>
+git push origin --delete <nombre-rama> 2>/dev/null || true
+
+# 8. Solo ENTONCES: Mover issue a "Done" en Linear
 ```
 
-### 2. Tests de Integración (DB Real)
+### Template de Comentario Final
 
-```python
-# tests/integration/test_quotes_api.py
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from opa_quotes_api.main import app
-from opa_quotes_api.models import RealTimeQuote
+TODO cierre de issue DEBE incluir comentario con este formato:
 
-@pytest.fixture(scope="session")
-def timescale_engine():
-    # Usar docker-compose.test.yml
-    return create_engine("postgresql://test_user:test_pass@localhost:5433/test_db")
+```markdown
+## ✅ Resolución
 
-@pytest.fixture
-def test_client():
-    return TestClient(app)
+🤖 **Agente opa-quotes-api**
 
-@pytest.mark.asyncio
-async def test_full_flow(test_client, timescale_engine):
-    # Seed → Request → Validate
-    ...
+**Pre-checks**:
+- [x] Leídos TODOS los comentarios de la issue
+- [x] Verificadas dependencias mencionadas (si hay)
+
+**Cambios realizados**:
+- [x] Archivo X creado/modificado
+- [x] Archivo Y actualizado
+
+**Commits**:
+- Hash: abc1234
+- Mensaje: "OPA-XXX: Descripción"
+- Link: https://github.com/Ocaxtar/opa-quotes-api/commit/abc1234
+
+**Verificación**:
+- [x] Archivos confirmados en `git status`
+- [x] Commit pusheado a GitHub
+- [x] Rama mergeada a `main`
+- [x] Archivos visibles en GitHub web en rama `main`
+
+**Tests** (si aplica):
+- [x] pytest pasado (X/Y tests)
+- [x] Linter sin errores
+
+Issue cerrada.
 ```
+
+### Errores Comunes que Causan Pérdida de Trabajo
+
+| Error | Consecuencia | Solución |
+|-------|--------------|----------|
+| ❌ Cerrar issue sin verificar archivos en `main` | Trabajo perdido en rama sin mergear | Siempre verificar en GitHub web |
+| ❌ Pushear a rama pero NO mergear a main | Código no desplegable | Siempre mergear rama a `main` |
+| ❌ Commitear pero NO pushear | Archivos solo en local | `git push` SIEMPRE antes de cerrar |
+| ❌ Asumir que archivos están commiteados | Archivos solo en working directory | `git status` debe estar limpio |
+| ❌ Cerrar issue sin comentario final | Sin trazabilidad | Template SIEMPRE |
+
+### Prefijo Obligatorio en Comentarios
+
+**TODO comentario en Linear DEBE tener prefijo**:
+
+```
+🤖 Agente opa-quotes-api: [tu mensaje]
+```
+
+**Violaciones detectadas por auditoría supervisor**:
+- Issue sin comentario → REABIERTA
+- Comentario sin prefijo → Backfill correctivo
 
 ---
 
-**Última sincronización con supervisor**: 2026-01-13
+📝 **Fecha sincronización normativa**: 2026-01-14  
+**Versión normativa**: 1.0.0

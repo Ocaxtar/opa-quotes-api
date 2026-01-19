@@ -1,251 +1,114 @@
-# AGENTS.md - Guía para Agentes de IA (opa-quotes-api)
+# AGENTS.md - opa-quotes-api
 
-## Identidad y Misión
-
-**Nombre**: Agente de API de Cotizaciones (Módulo 5)
-**Workspace**: `opa-quotes-api`
-**Repositorio**: `opa-quotes-api`
-**Rol**: Exponer datos de cotizaciones históricas y en tiempo real vía API REST
-**Stack**: Python 3.12.x (fijado a <3.13), FastAPI, TimescaleDB, Redis (Fase 2)
-
-### Objetivo Principal
-Proporcionar acceso eficiente a datos de cotizaciones para todos los módulos del ecosistema OPA. Este servicio lee desde `opa-quotes-storage` y sirve datos con baja latencia (<100ms p99) y alta disponibilidad (>99.9%).
-
-### Documentación Base (Lectura Obligatoria)
-1. **[ECOSYSTEM_CONTEXT.md](docs/ECOSYSTEM_CONTEXT.md)**: Posición en arquitectura global
-2. **[DEVELOPMENT.md](docs/DEVELOPMENT.md)**: Setup técnico, testing y estándares
-3. **[ROADMAP.md](ROADMAP.md)**: Objetivos Fase 1 (Cotización 40%)
-
-### Principios de Operación
-1. **Respeto Absoluto a los Contratos**: Consultar `docs/contracts/apis/quotes-api.md`
-2. **Performance**: Todas las queries deben cumplir SLA (<100ms p99)
-3. **Idempotencia**: Endpoints GET son read-only, sin side effects
-4. **Etiquetado Estricto**: Solo trabajar en issues con label `opa-quotes-api`
+> 🎯 **Guía para agentes IA** - Repositorio operativo del ecosistema OPA_Machine.  
+> **Documentación completa**: [Supervisor OPA_Machine](https://github.com/Ocaxtar/OPA_Machine)
 
 ---
 
-## 📚 Agent Skills (CONSULTAR PRIMERO)
+## 🚦 Pre-Flight Checklist (OBLIGATORIO)
 
-Este repositorio incluye skills especializados para guiar el trabajo:
+**Antes de cualquier operación**:
 
-| Skill | Propósito | Cuándo consultar |
-|-------|-----------|------------------|
-| **[git-linear-workflow](.github/skills/git-linear-workflow/SKILL.md)** | Workflow Git+Linear completo | Al trabajar en issues (branch, commit, merge, cierre) |
-| **[linear-mcp-tool](.github/skills/linear-mcp-tool/SKILL.md)** | Errores comunes Linear MCP | Al usar mcp_linear tools (errores, fixes) |
-| **[run-efficiency](.github/skills/run-efficiency/SKILL.md)** | Gestión tokens, pre-Done checklist | En tareas complejas, antes de marcar Done |
-
-**Guías de referencia** (supervisor):
-- **[code-conventions.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/code-conventions.md)**: Estándares código, testing, CI/CD
-- **[technology-stack.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/guides/technology-stack.md)**: Stack tecnológico consolidado
-
-**Convención idiomática**:
-- **Código y nombres técnicos** (clases, funciones, commits): **Inglés**
-- **Interacción con usuarios** (comentarios Linear, PRs, docs narrativa): **Español**
-
-> **Sincronizado desde**: OPA_Machine supervisor (OPA-264)
+| Acción | Recurso | Cuándo |
+|--------|---------|--------|
+| Verificar puertos/Docker | [service-inventory.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/infrastructure/service-inventory.md) | ⚠️ Antes de Docker |
+| Cargar skill necesario | [Skills INDEX](https://github.com/Ocaxtar/OPA_Machine/blob/main/.github/skills/INDEX.md) | Antes de tarea compleja |
+| Trabajar en issue | Skill `git-linear-workflow` | Antes de branch/commit |
+| Usar Linear MCP tools | Skill `linear-mcp-tool` | Si tool falla |
 
 ---
 
-## 🔧 Gestión de Tools MCP (Linear, GitHub)
+## 📋 Información del Proyecto
 
-**REGLA CRÍTICA**: Muchas tools de Linear/GitHub requieren activación explícita antes de uso.
+**Nombre**: opa-quotes-api  
+**Módulo**: Cotización (Módulo 2)  
+**Tipo**: api (FastAPI)  
+**Fase**: 1  
+**Equipo Linear**: OPA  
+**Repositorio**: https://github.com/Ocaxtar/opa-quotes-api  
+**Puerto asignado**: 8000
 
-### Workflow de Activación
+### Rol en el Ecosistema
 
-Si intentas usar una tool y fallas con:
-```
-Tool mcp_linear_create_issue is currently disabled by the user, and cannot be called.
-ERROR: Tool not found or not activated
-```
+API REST para consulta de cotizaciones. Expone endpoints para obtener precios históricos y en tiempo real desde TimescaleDB.
 
-**NO continúes sin la tool**. Debes:
-1. ✅ Activar el grupo de tools correspondiente
-2. ✅ Reintentar la operación original
-3. ❌ NUNCA saltar el paso o usar alternativa
+### Dependencias
 
-**Ejemplo**:
-```markdown
-# Detectar fallo
-Tool mcp_linear_create_comment failed: currently disabled
-
-# 1. Activar grupo
-activate_issue_management_tools()
-
-# 2. Reintentar operación EXACTA
-mcp_linear_create_comment(issueId="OPA-XXX", body="...")
-```
-
-### Tools que Requieren Activación
-
-| Grupo | Tool de Activación | Cuándo Usar |
-|-------|-------------------|-------------|
-| Linear Issues | `activate_issue_management_tools()` | Crear/actualizar issues, labels |
-| Linear Docs | `activate_document_management_tools()` | Crear/actualizar documentos |
-| GitHub PRs | `activate_pull_request_review_tools()` | Crear/revisar PRs |
-| GitHub Repos | `activate_repository_management_tools()` | Crear repos, branches |
-
-**Ver**: `OPA_Machine/AGENTS.md` sección "Gestión de Tools MCP" para tabla completa.
+| Servicio | Puerto | Propósito |
+|----------|--------|-----------|
+| TimescaleDB (quotes-storage) | 5433 | Base de datos |
+| API | 8000 | Servicio HTTP |
 
 ---
 
-## 🛡️ Validación de Convenciones
+## ⚠️ Reglas Críticas
 
-**REGLA CRÍTICA**: Antes de ejecutar acciones que modifican estado, validar convenciones.
+### 1. Prefijo en Comentarios Linear
 
-### Convenciones Obligatorias
-
-1. **Commits**: DEBEN incluir referencia a issue (`OPA-XXX`)
-2. **Issues**: DEBEN crearse en Linear ANTES de implementar
-3. **Branches**: DEBEN seguir patrón `username/opa-xxx-descripcion`
-4. **Tests**: DEBEN ejecutarse antes de marcar Done
-
-### 📝 Regla Crítica: Comentarios vs Descripción en Issues
-
-**PRINCIPIO**: La **descripción** de una issue es la **especificación inicial**. Los **comentarios** son el **registro de progreso**.
-
-**Comportamiento requerido**:
-
-| Acción | Tool Correcta | Tool Incorrecta |
-|--------|---------------|-----------------|
-| Reportar avance parcial | `mcp_linear_create_comment()` | ❌ `mcp_linear_update_issue(body=...)` |
-| Reactivar issue cerrada | `mcp_linear_create_comment()` + `update_issue(state="In Progress")` | ❌ Solo modificar descripción |
-| Documentar error encontrado | `mcp_linear_create_comment()` | ❌ Editar descripción |
-| Añadir diagnóstico | `mcp_linear_create_comment()` | ❌ Modificar descripción |
-| Cerrar con resumen | `mcp_linear_create_comment()` + `update_issue(state="Done")` | ❌ Solo cambiar estado |
-
-**¿Por qué?**:
-- **Trazabilidad**: Comentarios tienen timestamps automáticos → historial auditable
-- **Notificaciones**: Comentarios notifican a watchers → mejor colaboración
-- **Reversibilidad**: Descripción original preservada → contexto no se pierde
-- **Multi-agente**: Varios agentes pueden comentar sin conflictos de edición
-
-**¿Cuándo SÍ modificar descripción?**:
-- ✅ Corregir typos en la especificación original
-- ✅ Añadir criterios de aceptación faltantes (antes de empezar trabajo)
-- ✅ Actualizar estimación inicial
-- ❌ NUNCA para reportar progreso, errores o reactivaciones
-
-### Checkpoint Pre-Acción
-
-Si detectas violación, **DETENER** y devolver control al usuario:
-
-```markdown
-⚠️ **Acción Bloqueada - Violación de Convención**
-
-**Acción planeada**: `git commit -m "Fix bug"`
-**Violación**: Commit sin referencia a issue (OPA-XXX)
-
-**Opciones**:
-1. Crear issue en Linear primero → Usar OPA-XXX en commit
-2. Si issue existe → Añadir referencia al mensaje
-
-¿Cómo deseas proceder?
+```
+🤖 Agente opa-quotes-api: [mensaje]
 ```
 
-**El agente debe esperar respuesta del usuario antes de continuar.**
+**Obligatorio** en todo comentario. Auditoría supervisor detecta violaciones.
+
+### 2. Commits con Referencia a Issue
+
+```
+❌ git commit -m "Fix bug"
+✅ git commit -m "OPA-XXX: Fix bug description"
+```
+
+### 3. Puerto DB 5433 (NO 5432)
+
+```
+❌ DATABASE_URL=...localhost:5432/... → Conflicto PostgreSQL local
+✅ DATABASE_URL=...localhost:5433/... → Puerto correcto
+```
+
+### 4. Pre-Done Checklist
+
+Antes de mover issue a Done:
+- [ ] Código commiteado y pusheado
+- [ ] Tests pasan (si aplica)
+- [ ] Comentario de cierre con prefijo
+- [ ] Verificar archivos en GitHub web (no solo local)
 
 ---
 
-## ⚠️ Validación Pre-cierre de Issue (CRÍTICO)
+## 🔧 Convenciones
 
-**REGLA DE ORO**: Si un archivo NO está en GitHub en rama `main`, la issue NO está "Done".
-
-### Checklist OBLIGATORIO antes de mover issue a "Done"
-
-```bash
-# 0. LEER COMENTARIOS DE LA ISSUE (PRIMERO)
-# - Revisar TODOS los comentarios (especialmente los más recientes)
-# - Verificar que no hay instrucciones contradictorias
-
-# 1. Verificar estado de git
-git status  # Debe estar limpio
-
-# 2. Confirmar que archivos mencionados en la issue EXISTEN
-ls ruta/al/archivo-nuevo.md
-
-# 3. Commitear con mensaje correcto
-git add [archivos]
-git commit -m "OPA-XXX: Descripción clara"
-
-# 4. Pushear a GitHub
-git push origin main
-# O si trabajas en rama:
-git push origin <nombre-rama>
-
-# 5. VERIFICAR en GitHub web que commit aparece
-
-# 6. Si trabajaste en rama feature: MERGEAR a main
-git checkout main
-git pull origin main
-git merge --squash <nombre-rama>
-git commit -m "OPA-XXX: Descripción completa"
-git push origin main
-
-# 7. Eliminar branch (local + remota)
-git branch -d <nombre-rama>
-git push origin --delete <nombre-rama> 2>/dev/null || true
-
-# 8. Solo ENTONCES: Mover issue a "Done" en Linear
-```
-
-### Template de Comentario Final
-
-TODO cierre de issue DEBE incluir comentario con este formato:
-
-```markdown
-## ✅ Resolución
-
-🤖 **Agente opa-quotes-api**
-
-**Pre-checks**:
-- [x] Leídos TODOS los comentarios de la issue
-- [x] Verificadas dependencias mencionadas (si hay)
-
-**Cambios realizados**:
-- [x] Archivo X creado/modificado
-- [x] Archivo Y actualizado
-
-**Commits**:
-- Hash: abc1234
-- Mensaje: "OPA-XXX: Descripción"
-- Link: https://github.com/Ocaxtar/opa-quotes-api/commit/abc1234
-
-**Verificación**:
-- [x] Archivos confirmados en `git status`
-- [x] Commit pusheado a GitHub
-- [x] Rama mergeada a `main`
-- [x] Archivos visibles en GitHub web en rama `main`
-
-**Tests** (si aplica):
-- [x] pytest pasado (X/Y tests)
-- [x] Linter sin errores
-
-Issue cerrada.
-```
-
-### Errores Comunes que Causan Pérdida de Trabajo
-
-| Error | Consecuencia | Solución |
-|-------|--------------|----------|
-| ❌ Cerrar issue sin verificar archivos en `main` | Trabajo perdido en rama sin mergear | Siempre verificar en GitHub web |
-| ❌ Pushear a rama pero NO mergear a main | Código no desplegable | Siempre mergear rama a `main` |
-| ❌ Commitear pero NO pushear | Archivos solo en local | `git push` SIEMPRE antes de cerrar |
-| ❌ Asumir que archivos están commiteados | Archivos solo en working directory | `git status` debe estar limpio |
-| ❌ Cerrar issue sin comentario final | Sin trazabilidad | Template SIEMPRE |
-
-### Prefijo Obligatorio en Comentarios
-
-**TODO comentario en Linear DEBE tener prefijo**:
-
-```
-🤖 Agente opa-quotes-api: [tu mensaje]
-```
-
-**Violaciones detectadas por auditoría supervisor**:
-- Issue sin comentario → REABIERTA
-- Comentario sin prefijo → Backfill correctivo
+| Elemento | Convención |
+|----------|------------|
+| Idioma código | Inglés |
+| Idioma comentarios | Español |
+| Commits | `OPA-XXX: Descripción` |
+| Python | 3.12 (NO 3.13) |
+| Framework | FastAPI |
+| DB Driver | asyncpg |
 
 ---
 
-**Última sincronización con supervisor**: 2026-01-16
-**Versión normativa**: 2.0.0 (Agent Skills)
+## 📚 Skills Disponibles
+
+| Skill | Propósito |
+|-------|-----------|
+| `git-linear-workflow` | Workflow Git+Linear |
+| `linear-mcp-tool` | Errores MCP Linear |
+| `run-efficiency` | Gestión tokens |
+
+> Ver [INDEX.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/.github/skills/INDEX.md) para lista completa.
+
+---
+
+## 🔗 Referencias Supervisor
+
+| Documento | Propósito |
+|-----------|-----------|
+| [AGENTS.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/AGENTS.md) | Guía maestra |
+| [service-inventory.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/infrastructure/service-inventory.md) | Puertos y conflictos |
+| [ROADMAP.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/ROADMAP.md) | Fases del proyecto |
+| [Contratos](https://github.com/Ocaxtar/OPA_Machine/tree/main/docs/contracts) | APIs y schemas |
+
+---
+
+*Actualizado por OPA-277 Context-Driven Architecture initiative. 2026-01-19*

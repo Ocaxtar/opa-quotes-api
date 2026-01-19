@@ -208,42 +208,95 @@ class QuoteRepository:
             logger.error(f"Error getting batch quotes: {e}")
             return []
 
-    async def create_batch(self, quotes: list) -> int:
+    async def create_batch(self, quotes: list) -> dict:
         """
-        Create multiple quotes in batch.
+        Create multiple quotes in batch with idempotent upsert.
 
         Args:
             quotes: List of QuoteCreate objects
 
         Returns:
-            Number of quotes created
+            Dict with created/failed counts and errors
         """
+        from sqlalchemy.dialects.postgresql import insert
+
+        created_count = 0
+        failed_count = 0
+        errors = []
+
         try:
-            created_count = 0
             for quote_data in quotes:
-                # Convert single price to OHLC (for real-time data)
-                quote = RealTimeQuote(
-                    ticker=quote_data.ticker.upper(),
-                    timestamp=quote_data.timestamp,
-                    open=quote_data.price,
-                    high=quote_data.price,
-                    low=quote_data.price,
-                    close=quote_data.price,
-                    volume=quote_data.volume,
-                    bid=None,
-                    ask=None
-                )
-                self.db.add(quote)
-                created_count += 1
+                try:
+                    # Prepare OHLC values (use close if not provided)
+                    open_val = quote_data.open if quote_data.open is not None else quote_data.close
+                    high_val = quote_data.high if quote_data.high is not None else quote_data.close
+                    low_val = quote_data.low if quote_data.low is not None else quote_data.close
+                    close_val = quote_data.close
+                    volume_val = quote_data.volume if quote_data.volume is not None else 0
+
+                    # Upsert statement with ON CONFLICT
+                    stmt = insert(RealTimeQuote).values(
+                        ticker=quote_data.ticker.upper(),
+                        timestamp=quote_data.timestamp,
+                        open=open_val,
+                        high=high_val,
+                        low=low_val,
+                        close=close_val,
+                        volume=volume_val,
+                        bid=None,
+                        ask=None
+                    )
+
+                    # ON CONFLICT (ticker, timestamp) DO UPDATE
+                    stmt = stmt.on_conflict_do_update(
+                        index_elements=['ticker', 'timestamp'],
+                        set_={
+                            'open': stmt.excluded.open,
+                            'high': stmt.excluded.high,
+                            'low': stmt.excluded.low,
+                            'close': stmt.excluded.close,
+                            'volume': stmt.excluded.volume,
+                        }
+                    )
+
+                    await self.db.execute(stmt)
+                    created_count += 1
+
+                except Exception as e:
+                    failed_count += 1
+                    errors.append({
+                        "ticker": quote_data.ticker,
+                        "reason": str(e)
+                    })
+                    logger.warning(f"Failed to insert quote for {quote_data.ticker}: {e}")
 
             await self.db.commit()
-            logger.info(f"Created {created_count} quotes in batch")
-            return created_count
+            logger.info(f"Batch insert: {created_count} created, {failed_count} failed")
+
+            # Determine status
+            if failed_count == 0:
+                status = "success"
+            elif created_count == 0:
+                status = "error"
+            else:
+                status = "partial"
+
+            return {
+                "status": status,
+                "created": created_count,
+                "failed": failed_count,
+                "errors": errors if errors else None
+            }
 
         except Exception as e:
             logger.error(f"Error creating batch quotes: {e}")
             await self.db.rollback()
-            raise
+            return {
+                "status": "error",
+                "created": 0,
+                "failed": len(quotes),
+                "errors": [{"reason": f"Database error: {str(e)}"}]
+            }
 
     async def list_tickers(
         self,

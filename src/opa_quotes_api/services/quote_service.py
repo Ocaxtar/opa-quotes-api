@@ -191,24 +191,11 @@ class QuoteService:
             quotes: List of QuoteCreate objects
 
         Returns:
-            dict with status and count
+            dict with status, created, failed, and errors
         """
-        try:
-            created_count = await self.repository.create_batch(quotes)
-            logger.info(f"Successfully created {created_count} quotes")
-            
-            return {
-                "status": "success",
-                "created": created_count,
-                "quotes": [q.ticker for q in quotes]
-            }
-        except Exception as e:
-            logger.error(f"Error creating batch: {e}")
-            return {
-                "status": "error",
-                "created": 0,
-                "error": str(e)
-            }
+        result = await self.repository.create_batch(quotes)
+        logger.info(f"Batch operation: {result['status']} - {result['created']} created, {result['failed']} failed")
+        return result
 
     async def list_tickers(
         self,

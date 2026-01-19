@@ -20,19 +20,25 @@ class IntervalEnum(str, Enum):
 class QuoteCreate(BaseModel):
     """Schema para crear una cotización."""
 
-    ticker: str = Field(..., description="Symbol del activo", min_length=1, max_length=10)
+    ticker: str = Field(..., description="Symbol del activo", pattern=r'^[A-Z]{1,10}$')
     timestamp: datetime = Field(..., description="Timestamp de la cotización")
-    price: Decimal = Field(..., description="Precio de la cotización", ge=0)
-    volume: int = Field(..., description="Volumen negociado", ge=0)
-    source: str = Field(..., description="Fuente de datos", max_length=50)
+    open: float | None = Field(None, description="Precio de apertura", ge=0)
+    high: float | None = Field(None, description="Precio máximo", ge=0)
+    low: float | None = Field(None, description="Precio mínimo", ge=0)
+    close: float = Field(..., description="Precio de cierre (requerido)", ge=0)
+    volume: int | None = Field(None, description="Volumen negociado", ge=0)
+    source: str = Field(default="yfinance", description="Fuente de datos", max_length=50)
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "ticker": "AAPL",
-                "timestamp": "2026-01-10T09:11:31.294777Z",
-                "price": 259.35,
-                "volume": 318089,
+                "timestamp": "2026-01-19T10:30:00Z",
+                "open": 150.25,
+                "high": 151.00,
+                "low": 149.80,
+                "close": 150.75,
+                "volume": 1500000,
                 "source": "yfinance"
             }
         }
@@ -45,7 +51,8 @@ class QuoteBatchCreate(BaseModel):
     quotes: list[QuoteCreate] = Field(
         ...,
         description="Lista de cotizaciones a crear",
-        min_length=1
+        min_length=1,
+        max_length=1000
     )
 
     model_config = {
@@ -211,8 +218,37 @@ class BatchQuoteItem(BaseModel):
     error: str | None = Field(None, description="Mensaje de error si falla")
 
 
+class QuoteBatchResponse(BaseModel):
+    """Schema de respuesta para creación batch según OPA-269."""
+
+    status: str = Field(..., description="Estado: success, partial o error")
+    created: int = Field(..., description="Cantidad de quotes creados", ge=0)
+    failed: int = Field(default=0, description="Cantidad de quotes fallidos", ge=0)
+    errors: list[dict] | None = Field(None, description="Lista de errores (si failed > 0)")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "success",
+                    "created": 10,
+                    "failed": 0
+                },
+                {
+                    "status": "partial",
+                    "created": 8,
+                    "failed": 2,
+                    "errors": [
+                        {"ticker": "INVALID", "reason": "Ticker format invalid"}
+                    ]
+                }
+            ]
+        }
+    }
+
+
 class BatchResponse(BaseModel):
-    """Schema de respuesta para batch de cotizaciones."""
+    """Schema de respuesta para batch de cotizaciones (GET)."""
 
     quotes: list[BatchQuoteItem] = Field(..., description="Lista de cotizaciones")
     total: int = Field(..., description="Total de items solicitados", ge=0)

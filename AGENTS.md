@@ -11,10 +11,29 @@
 
 | Acción | Recurso | Cuándo |
 |--------|---------|--------|
+| 🔄 **Sincronizar workspace** | Script `scripts/git/check_sync.sh` | ⚠️ **INICIO DE CADA RUN** |
 | Verificar puertos/Docker | [service-inventory.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/infrastructure/service-inventory.md) | ⚠️ Antes de Docker |
 | Cargar skill necesario | [Skills INDEX](https://github.com/Ocaxtar/OPA_Machine/blob/main/.github/skills/INDEX.md) | Antes de tarea compleja |
 | Trabajar en issue | Skill `git-linear-workflow` | Antes de branch/commit |
 | Usar Linear MCP tools | Skill `linear-mcp-tool` | Si tool falla |
+
+### Sincronización Automática
+
+**Al inicio de cada run, ejecutar**:
+```bash
+bash scripts/git/check_sync.sh
+```
+
+**Exit codes**:
+- `0`: ✅ Sincronizado (continuar)
+- `2`: ⚠️ Commits locales sin push (avisar usuario)
+- `3`: ⚠️ Cambios remotos en código (avisar usuario)
+- `4`: ❌ Divergencia detectada (requerir resolución manual)
+- `5`: ⚠️ No se pudo conectar con remoto
+
+**Pull automático**: Si solo hay cambios en `docs/`, `AGENTS.md`, `.github/skills/`, `README.md`, `ROADMAP.md` → pull automático aplicado.
+
+**Ver detalles completos**: Consultar skill `workspace-sync` en OPA_Machine supervisor.
 
 ---
 
@@ -111,4 +130,4 @@ Antes de mover issue a Done:
 
 ---
 
-*Actualizado por OPA-277 Context-Driven Architecture initiative. 2026-01-19*
+*Actualizado con workspace-sync skill - OPA-293 - 2026-01-20*

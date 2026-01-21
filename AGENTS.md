@@ -1,7 +1,7 @@
 # AGENTS.md - opa-quotes-api
 
 > 🎯 **Guía para agentes IA** - Repositorio operativo del ecosistema OPA_Machine.  
-> **Documentación completa**: [Supervisor OPA_Machine](https://github.com/Ocaxtar/OPA_Machine)
+> **Documentación completa**: [Supervisor OPA_Machine](https://github.com/Ocaxtar/opa-supervisor)
 
 ---
 
@@ -11,11 +11,12 @@
 
 | Acción | Recurso | Cuándo |
 |--------|---------|--------|
-| 🔄 **Sincronizar workspace** | Script `scripts/git/check_sync.sh` | ⚠️ **INICIO DE CADA RUN** |
-| Verificar puertos/Docker | [service-inventory.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/infrastructure/service-inventory.md) | ⚠️ Antes de Docker |
-| Cargar skill necesario | [Skills INDEX](https://github.com/Ocaxtar/OPA_Machine/blob/main/.github/skills/INDEX.md) | Antes de tarea compleja |
-| Trabajar en issue | Skill `git-linear-workflow` | Antes de branch/commit |
-| Usar Linear MCP tools | Skill `linear-mcp-tool` | Si tool falla |
+| 🔄 **Sincronizar workspace** | Script `scripts/git/check_sync.sh` (incluye activación MCP) | ⚠️ **INICIO DE CADA RUN** |
+| Verificar puertos/Docker | [service-inventory.md](https://github.com/Ocaxtar/opa-supervisor/blob/main/docs/infrastructure/service-inventory.md) | ⚠️ Antes de Docker |
+| Consultar infraestructura | [opa-infrastructure-state](https://github.com/Ocaxtar/opa-infrastructure-state) | ⚠️ Antes de Docker/DB/Redis |
+| Cargar skill necesario | Skills globales en `~/.copilot/skills/` | Antes de tarea compleja |
+| Trabajar en issue | Skill global `git-linear-workflow` | Antes de branch/commit |
+| Usar Linear MCP tools | Skill global `linear-mcp-tool` | Si tool falla/necesitas categorías extra |
 
 ### Sincronización Automática
 
@@ -31,9 +32,11 @@ bash scripts/git/check_sync.sh
 - `4`: ❌ Divergencia detectada (requerir resolución manual)
 - `5`: ⚠️ No se pudo conectar con remoto
 
-**Pull automático**: Si solo hay cambios en `docs/`, `AGENTS.md`, `.github/skills/`, `README.md`, `ROADMAP.md` → pull automático aplicado.
+**Pull automático**: Si solo hay cambios en `docs/`, `AGENTS.md`, `README.md`, `ROADMAP.md` → pull automático aplicado.
 
-**Ver detalles completos**: Consultar skill `workspace-sync` en OPA_Machine supervisor.
+**Activación MCP incluida**: El skill `workspace-sync` del supervisor OPA_Machine activa automáticamente los grupos principales de MCP tools (Linear Issues, Workspace Overview, GitHub Repos, GitHub Issues). Si necesitas tools de categorías adicionales (documentos, tracking, team management, PR reviews), actívalas bajo demanda.
+
+**Ver detalles completos**: Consultar skill `workspace-sync` en opa-supervisor.
 
 ---
 
@@ -109,13 +112,17 @@ Antes de mover issue a Done:
 
 ## 📚 Skills Disponibles
 
+**Skills Globales** (ubicación: `~/.copilot/skills/`):
+
 | Skill | Propósito |
 |-------|-----------|
-| `git-linear-workflow` | Workflow Git+Linear |
-| `linear-mcp-tool` | Errores MCP Linear |
-| `run-efficiency` | Gestión tokens |
+| `git-linear-workflow` | Workflow Git+Linear completo |
+| `linear-mcp-tool` | Errores MCP Linear y soluciones |
+| `run-efficiency` | Gestión tokens, pre-Done checklist |
 
-> Ver [INDEX.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/.github/skills/INDEX.md) para lista completa.
+> ⚠️ **Nota**: Skills ya no tienen carpeta local `.github/skills/`. Están centralizados en ubicación global del usuario.
+
+**Skills OPA específicos**: Ver [opa-supervisor/.github/skills/](https://github.com/Ocaxtar/opa-supervisor/tree/main/.github/skills) para skills de arquitectura, auditoría y transición de fases.
 
 ---
 
@@ -123,11 +130,12 @@ Antes de mover issue a Done:
 
 | Documento | Propósito |
 |-----------|-----------|
-| [AGENTS.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/AGENTS.md) | Guía maestra |
-| [service-inventory.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/infrastructure/service-inventory.md) | Puertos y conflictos |
-| [ROADMAP.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/ROADMAP.md) | Fases del proyecto |
-| [Contratos](https://github.com/Ocaxtar/OPA_Machine/tree/main/docs/contracts) | APIs y schemas |
+| [AGENTS.md](https://github.com/Ocaxtar/opa-supervisor/blob/main/AGENTS.md) | Guía maestra |
+| [service-inventory.md](https://github.com/Ocaxtar/opa-supervisor/blob/main/docs/infrastructure/service-inventory.md) | Puertos y conflictos |
+| [opa-infrastructure-state](https://github.com/Ocaxtar/opa-infrastructure-state) | Estado infraestructura |
+| [ROADMAP.md](https://github.com/Ocaxtar/opa-supervisor/blob/main/ROADMAP.md) | Fases del proyecto |
+| [Contratos](https://github.com/Ocaxtar/opa-supervisor/tree/main/docs/contracts) | APIs y schemas |
 
 ---
 
-*Actualizado con workspace-sync skill - OPA-293 - 2026-01-20*
+*Actualizado OPA-298: Skills migrados a ubicación global - 2026-01-21*

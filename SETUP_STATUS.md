@@ -6,7 +6,7 @@
 
 #### 1. Descarga del Repositorio
 - ✅ Repositorio clonado desde GitHub: `Ocaxtar/opa-quotes-api`
-- ✅ Ubicación local: `d:\Documentos\Desarrollos\OPA_Machine_main\opa-quotes-api`
+- ✅ Ubicación local: `d:\Documentos\Desarrollos\OPA_Machine\opa-quotes-api`
 
 #### 2. Corrección de Dependencias
 - ✅ Corregido `pyproject.toml` con sintaxis TOML válida

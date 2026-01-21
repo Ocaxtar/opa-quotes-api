@@ -245,7 +245,7 @@ Este servicio implementa los siguientes contratos formales:
 
 #### POST /quotes/batch
 
-**Contract**: [Quotes Batch Contract](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/contracts/apis/quotes-batch.md)
+**Contract**: [Quotes Batch Contract](https://github.com/Ocaxtar/opa-supervisor/blob/main/docs/contracts/apis/quotes-batch.md)
 
 - **Role**: Consumer
 - **Producer**: opa-quotes-streamer
@@ -395,8 +395,8 @@ Ver: [ROADMAP.md](ROADMAP.md) para detalles completos.
 
 ## 🔗 Referencias
 
-- **Documentación supervisor**: [OPA_Machine/docs/services/module-5-quotes/](https://github.com/Ocaxtar/OPA_Machine/tree/main/docs/services/module-5-quotes)
-- **Contratos API**: [OPA_Machine/docs/contracts/apis/](https://github.com/Ocaxtar/OPA_Machine/tree/main/docs/contracts/apis)
+- **Documentación supervisor**: [OPA_Machine/docs/services/module-5-quotes/](https://github.com/Ocaxtar/opa-supervisor/tree/main/docs/services/module-5-quotes)
+- **Contratos API**: [OPA_Machine/docs/contracts/apis/](https://github.com/Ocaxtar/opa-supervisor/tree/main/docs/contracts/apis)
 - **ADR-007**: Arquitectura multi-workspace
 - **Guía de desarrollo**: Ver AGENTS.md
 

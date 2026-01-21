@@ -12,7 +12,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from opa_quotes_api.config import get_settings
 from opa_quotes_api.database import engine
 from opa_quotes_api.logging_setup import setup_logging
-from opa_quotes_api.routers import quotes
+from opa_quotes_api.routers import quotes, websocket
 
 # Setup logging
 setup_logging()
@@ -73,6 +73,7 @@ async def health_check():
 
 # Include routers with /v1 prefix
 app.include_router(quotes.router, prefix="/v1")
+app.include_router(websocket.router, prefix="/v1")
 
 
 if __name__ == "__main__":

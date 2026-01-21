@@ -25,9 +25,11 @@ API REST y WebSockets para servir cotizaciones de mercado en tiempo real del eco
    - `GET /quotes/batch` → Múltiples tickers en una consulta
    - Health check endpoint (`/health`)
 
-2. **WebSocket Streaming** (Fase 2):
-   - `WS /ws/quotes/{ticker}` → Stream en tiempo real
-   - `WS /ws/quotes/multi` → Stream multi-ticker
+2. **WebSocket Streaming**:
+   - `WS /v1/ws/quotes?tickers={tickers}` → Stream en tiempo real
+   - Filtrado por tickers (AAPL,MSFT o todos)
+   - Integración con Redis Pub/Sub (canal `quotes.realtime`)
+   - ConnectionManager para múltiples clientes concurrentes
    - Heartbeat para mantener conexión activa
 
 3. **Performance**:
@@ -172,20 +174,88 @@ curl -X POST http://localhost:8000/quotes/batch \
   -d '{"tickers": ["AAPL", "MSFT", "GOOGL"]}'
 ```
 
-### WebSocket Streaming (Fase 2)
+### WebSocket Streaming
 
+**Endpoint**: `ws://localhost:8000/v1/ws/quotes`
+
+**Conexión con filtro de tickers**:
+```bash
+# Suscribirse a AAPL y MSFT solamente
+ws://localhost:8000/v1/ws/quotes?tickers=AAPL,MSFT
+
+# Suscribirse a todos los tickers (omitir parámetro)
+ws://localhost:8000/v1/ws/quotes
+```
+
+**Cliente Python**:
 ```python
 import asyncio
 import websockets
+import json
 
 async def stream_quotes():
-    uri = "ws://localhost:8000/ws/quotes/AAPL"
+    uri = "ws://localhost:8000/v1/ws/quotes?tickers=AAPL,MSFT"
+    
     async with websockets.connect(uri) as ws:
-        while True:
-            quote = await ws.recv()
-            print(quote)
+        print("✅ Conectado al WebSocket")
+        
+        try:
+            async for message in ws:
+                quote = json.loads(message)
+                print(f"{quote['ticker']}: ${quote['close']:.2f} @ {quote['timestamp']}")
+        except websockets.exceptions.ConnectionClosed:
+            print("❌ Conexión cerrada")
 
 asyncio.run(stream_quotes())
+```
+
+**Cliente JavaScript (Browser)**:
+```javascript
+const ws = new WebSocket('ws://localhost:8000/v1/ws/quotes?tickers=AAPL,MSFT');
+
+ws.onopen = () => {
+    console.log('✅ Conectado al WebSocket');
+};
+
+ws.onmessage = (event) => {
+    const quote = JSON.parse(event.data);
+    console.log(`${quote.ticker}: $${quote.close} @ ${quote.timestamp}`);
+};
+
+ws.onerror = (error) => {
+    console.error('❌ Error:', error);
+};
+
+ws.onclose = () => {
+    console.log('❌ Conexión cerrada');
+};
+```
+
+**Formato de mensajes**:
+```json
+{
+  "ticker": "AAPL",
+  "timestamp": "2026-01-21T10:30:00Z",
+  "open": 150.25,
+  "high": 151.10,
+  "low": 150.05,
+  "close": 150.90,
+  "volume": 1000000,
+  "bid": 150.88,
+  "ask": 150.92
+}
+```
+
+**Cliente HTML interactivo**:
+
+Incluido en `docs/examples/websocket-client.html`. Abrir en navegador:
+
+```bash
+# Desde raíz del proyecto
+open docs/examples/websocket-client.html
+# o
+python -m http.server 8080
+# Luego visitar http://localhost:8080/docs/examples/websocket-client.html
 ```
 
 ## 🧪 Testing
@@ -312,7 +382,7 @@ opa-quotes-api/
 │       ├── main.py              # FastAPI app
 │       ├── routers/
 │       │   ├── quotes.py        # REST endpoints
-│       │   └── websocket.py     # WS endpoints (Fase 2)
+│       │   └── websocket.py     # WS endpoints
 │       ├── services/
 │       │   ├── quote_service.py # Business logic
 │       │   └── cache_service.py # Redis caching
@@ -381,12 +451,13 @@ psql -U opa_user -d opa_quotes -c "SELECT count(*) FROM pg_stat_activity;"
 - [ ] Tests unitarios (>80% coverage)
 - [ ] CI/CD con GitHub Actions
 
-**Fase 2**: WebSockets
-- [ ] Implementar WS streaming
+**Fase 2**: WebSockets & Optimización
+- [x] Implementar WS streaming
+- [x] Integración Redis Pub/Sub
+- [x] Filtrado multi-ticker
+- [x] ConnectionManager
+- [x] Cliente HTML ejemplo
 - [ ] Heartbeat mechanism
-- [ ] Multi-ticker subscriptions
-
-**Fase 3**: Optimización
 - [ ] Query optimization (TimescaleDB)
 - [ ] Rate limiting avanzado
 - [ ] Monitoring dashboards (Grafana)

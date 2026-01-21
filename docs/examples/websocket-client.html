@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OPA Quotes WebSocket Client</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        input, button {
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        input {
+            flex: 1;
+            min-width: 200px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .disconnect {
+            background-color: #f44336;
+        }
+        .disconnect:hover {
+            background-color: #da190b;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status.connecting {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .quotes {
+            margin-top: 20px;
+        }
+        .quote-card {
+            background: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #4CAF50;
+            border-radius: 4px;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .quote-ticker {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .quote-price {
+            font-size: 32px;
+            color: #4CAF50;
+            margin: 10px 0;
+        }
+        .quote-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .quote-detail {
+            font-size: 12px;
+        }
+        .quote-detail-label {
+            color: #666;
+            display: block;
+        }
+        .quote-detail-value {
+            font-weight: bold;
+            color: #333;
+        }
+        .quote-timestamp {
+            font-size: 12px;
+            color: #999;
+            margin-top: 10px;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            flex: 1;
+            min-width: 150px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1976d2;
+        }
+        .clear-btn {
+            background-color: #ff9800;
+        }
+        .clear-btn:hover {
+            background-color: #f57c00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 OPA Quotes WebSocket Client</h1>
+        
+        <div class="status" id="status">
+            Desconectado
+        </div>
+        
+        <div class="controls">
+            <input 
+                type="text" 
+                id="wsUrl" 
+                placeholder="WebSocket URL" 
+                value="ws://localhost:8000/v1/ws/quotes"
+            />
+            <input 
+                type="text" 
+                id="tickers" 
+                placeholder="Tickers (ej: AAPL,MSFT) o vacío para todos"
+            />
+            <button id="connectBtn" onclick="connect()">Conectar</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>Desconectar</button>
+            <button class="clear-btn" onclick="clearQuotes()">Limpiar</button>
+        </div>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-label">Mensajes Recibidos</div>
+                <div class="stat-value" id="messageCount">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Tickers Únicos</div>
+                <div class="stat-value" id="tickerCount">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Última Actualización</div>
+                <div class="stat-value" id="lastUpdate" style="font-size: 14px;">-</div>
+            </div>
+        </div>
+        
+        <div class="quotes" id="quotes">
+            <p style="color: #999; text-align: center;">
+                Conecta al WebSocket para ver cotizaciones en tiempo real
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let messageCount = 0;
+        let tickerSet = new Set();
+        const quotes = new Map();
+
+        function updateStatus(status, className) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = status;
+            statusEl.className = `status ${className}`;
+        }
+
+        function connect() {
+            const wsUrl = document.getElementById('wsUrl').value;
+            const tickersInput = document.getElementById('tickers').value.trim();
+            
+            let url = wsUrl;
+            if (tickersInput) {
+                url += `?tickers=${encodeURIComponent(tickersInput)}`;
+            }
+            
+            updateStatus('Conectando...', 'connecting');
+            
+            try {
+                ws = new WebSocket(url);
+                
+                ws.onopen = () => {
+                    updateStatus('Conectado', 'connected');
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                    document.getElementById('wsUrl').disabled = true;
+                    document.getElementById('tickers').disabled = true;
+                    console.log('WebSocket conectado');
+                };
+                
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleQuote(data);
+                    } catch (error) {
+                        console.error('Error parsing message:', error);
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    updateStatus('Error de conexión', 'disconnected');
+                };
+                
+                ws.onclose = () => {
+                    updateStatus('Desconectado', 'disconnected');
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    document.getElementById('wsUrl').disabled = false;
+                    document.getElementById('tickers').disabled = false;
+                    console.log('WebSocket desconectado');
+                };
+                
+            } catch (error) {
+                console.error('Error connecting:', error);
+                updateStatus('Error al conectar', 'disconnected');
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function handleQuote(data) {
+            messageCount++;
+            tickerSet.add(data.ticker);
+            quotes.set(data.ticker, data);
+            
+            updateStats();
+            renderQuotes();
+        }
+
+        function updateStats() {
+            document.getElementById('messageCount').textContent = messageCount;
+            document.getElementById('tickerCount').textContent = tickerSet.size;
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = 
+                now.toLocaleTimeString('es-ES');
+        }
+
+        function renderQuotes() {
+            const quotesEl = document.getElementById('quotes');
+            quotesEl.innerHTML = '';
+            
+            // Ordenar por ticker
+            const sortedQuotes = Array.from(quotes.entries()).sort((a, b) => 
+                a[0].localeCompare(b[0])
+            );
+            
+            sortedQuotes.forEach(([ticker, quote]) => {
+                const card = document.createElement('div');
+                card.className = 'quote-card';
+                
+                const timestamp = new Date(quote.timestamp).toLocaleString('es-ES');
+                
+                card.innerHTML = `
+                    <div class="quote-ticker">${quote.ticker}</div>
+                    <div class="quote-price">$${quote.close.toFixed(2)}</div>
+                    <div class="quote-details">
+                        <div class="quote-detail">
+                            <span class="quote-detail-label">Open</span>
+                            <span class="quote-detail-value">$${quote.open.toFixed(2)}</span>
+                        </div>
+                        <div class="quote-detail">
+                            <span class="quote-detail-label">High</span>
+                            <span class="quote-detail-value">$${quote.high.toFixed(2)}</span>
+                        </div>
+                        <div class="quote-detail">
+                            <span class="quote-detail-label">Low</span>
+                            <span class="quote-detail-value">$${quote.low.toFixed(2)}</span>
+                        </div>
+                        <div class="quote-detail">
+                            <span class="quote-detail-label">Volume</span>
+                            <span class="quote-detail-value">${quote.volume.toLocaleString()}</span>
+                        </div>
+                        ${quote.bid ? `
+                        <div class="quote-detail">
+                            <span class="quote-detail-label">Bid</span>
+                            <span class="quote-detail-value">$${quote.bid.toFixed(2)}</span>
+                        </div>
+                        ` : ''}
+                        ${quote.ask ? `
+                        <div class="quote-detail">
+                            <span class="quote-detail-label">Ask</span>
+                            <span class="quote-detail-value">$${quote.ask.toFixed(2)}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="quote-timestamp">📅 ${timestamp}</div>
+                `;
+                
+                quotesEl.appendChild(card);
+            });
+        }
+
+        function clearQuotes() {
+            quotes.clear();
+            tickerSet.clear();
+            messageCount = 0;
+            updateStats();
+            document.getElementById('quotes').innerHTML = `
+                <p style="color: #999; text-align: center;">
+                    Cotizaciones limpiadas
+                </p>
+            `;
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>

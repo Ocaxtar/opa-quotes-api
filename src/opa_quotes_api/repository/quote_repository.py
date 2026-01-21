@@ -5,6 +5,7 @@ from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opa_quotes_api.logging_setup import get_logger
+from opa_quotes_api.middleware.circuit_breaker import db_breaker
 from opa_quotes_api.repository.models import RealTimeQuote
 from opa_quotes_api.schemas import OHLCDataPoint, QuoteResponse
 
@@ -34,7 +35,14 @@ class QuoteRepository:
 
         Returns:
             QuoteResponse or None if not found
+
+        Raises:
+            CircuitBreakerError: If database circuit breaker is open
         """
+        return await db_breaker.call_async(self._get_latest_internal, ticker)
+
+    async def _get_latest_internal(self, ticker: str) -> QuoteResponse | None:
+        """Internal method for getting latest quote."""
         try:
             query = (
                 select(RealTimeQuote)

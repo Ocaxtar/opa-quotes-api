@@ -1,6 +1,7 @@
 """Quote service with business logic and caching."""
 
 from opa_quotes_api.logging_setup import get_logger
+from opa_quotes_api.middleware.circuit_breaker import CircuitBreakerError
 from opa_quotes_api.repository.quote_repository import QuoteRepository
 from opa_quotes_api.schemas import (
     BatchQuoteItem,
@@ -46,17 +47,20 @@ class QuoteService:
         """
         ticker = ticker.upper()
 
-        # Try cache first
+        # Try cache first (con circuit breaker)
         cache_key = self.cache.make_latest_key(ticker)
-        cached = await self.cache.get(cache_key)
+        try:
+            cached = await self.cache.get(cache_key)
+            if cached:
+                try:
+                    return QuoteResponse.model_validate_json(cached)
+                except Exception as e:
+                    logger.warning(f"Failed to deserialize cached quote for {ticker}: {e}")
+        except CircuitBreakerError:
+            # Circuit abierto en Redis - skip cache, ir directo a BD
+            logger.warning(f"Cache circuit open, skipping cache for {ticker}")
 
-        if cached:
-            try:
-                return QuoteResponse.model_validate_json(cached)
-            except Exception as e:
-                logger.warning(f"Failed to deserialize cached quote for {ticker}: {e}")
-
-        # Cache miss - query database
+        # Cache miss o circuit open - query database
         quote = await self.repository.get_latest(ticker)
 
         if quote:
@@ -92,13 +96,16 @@ class QuoteService:
             request.interval.value
         )
 
-        # Try cache
-        cached = await self.cache.get(cache_key)
-        if cached:
-            try:
-                return HistoryResponse.model_validate_json(cached)
-            except Exception as e:
-                logger.warning(f"Failed to deserialize cached history for {ticker}: {e}")
+        # Try cache (con circuit breaker)
+        try:
+            cached = await self.cache.get(cache_key)
+            if cached:
+                try:
+                    return HistoryResponse.model_validate_json(cached)
+                except Exception as e:
+                    logger.warning(f"Failed to deserialize cached history for {ticker}: {e}")
+        except CircuitBreakerError:
+            logger.warning(f"Cache circuit open, skipping cache for history {ticker}")
 
         # Query database
         data_points = await self.repository.get_history(

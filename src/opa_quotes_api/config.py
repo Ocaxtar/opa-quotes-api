@@ -36,6 +36,17 @@ class Settings(BaseSettings):
     environment: str = "development"
     cors_origins: list[str] = ["*"]
 
+    # Circuit Breaker
+    circuit_breaker_redis_fail_max: int = 5
+    circuit_breaker_redis_timeout: int = 30
+    circuit_breaker_db_fail_max: int = 3
+    circuit_breaker_db_timeout: int = 60
+
+    # Rate Limiting
+    rate_limit_default: str = "100/minute"
+    rate_limit_history: str = "20/minute"
+    rate_limit_batch: str = "50/minute"
+
     @property
     def effective_cors_origins(self) -> list[str]:
         """Return CORS origins based on environment."""

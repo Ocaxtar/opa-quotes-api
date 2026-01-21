@@ -337,7 +337,99 @@ opa-quotes-api/
 - **Errors**: HTTP status codes estándar + error schemas
 - **Tests**: pytest fixtures para TimescaleDB/Redis mock
 
-## 🐛 Troubleshooting
+## �️ Circuit Breakers y Rate Limiting
+
+### Circuit Breakers
+
+La API implementa circuit breakers para proteger contra fallos en cascada cuando las dependencias (Redis, TimescaleDB) están caídas.
+
+**Configuración**:
+
+```bash
+# Variables de entorno (.env)
+CIRCUIT_BREAKER_REDIS_FAIL_MAX=5       # Abrir tras 5 fallos consecutivos
+CIRCUIT_BREAKER_REDIS_TIMEOUT=30       # Mantener abierto 30 segundos
+CIRCUIT_BREAKER_DB_FAIL_MAX=3          # Abrir tras 3 fallos (más estricto)
+CIRCUIT_BREAKER_DB_TIMEOUT=60          # Mantener abierto 60 segundos
+```
+
+**Estados del circuit breaker**:
+
+- **CLOSED** (0): Operación normal, todas las requests pasan
+- **OPEN** (1): Circuito abierto tras N fallos, requests bloqueadas inmediatamente
+- **HALF-OPEN** (2): Tras timeout, permite 1 request de prueba
+
+**Comportamiento con fallback**:
+
+1. **Cache circuit open** → Skip cache, ir directo a BD
+2. **DB circuit open** → Retornar 503 Service Unavailable
+3. **Ambos circuits open** → 503 con mensaje descriptivo
+
+**Monitoreo**:
+
+```bash
+# Ver estado de circuits en métricas Prometheus
+curl http://localhost:8000/metrics | grep circuit_breaker_state
+# circuit_breaker_state{service="redis"} 0
+# circuit_breaker_state{service="timescaledb"} 0
+
+# Ver total de aperturas
+curl http://localhost:8000/metrics | grep circuit_breaker_open_total
+```
+
+### Rate Limiting
+
+Rate limiting dinámico por IP para prevenir abuso de clientes.
+
+**Límites por endpoint**:
+
+| Endpoint | Límite | Descripción |
+|----------|--------|-------------|
+| `/quotes/{ticker}/latest` | 100/minuto | Consultas individuales |
+| `/quotes/{ticker}/history` | 20/minuto | Queries pesadas (agregaciones) |
+| `/quotes/batch` | 50/minuto | Batch queries y creación |
+| `/quotes/` | 30/minuto | Listado de tickers |
+
+**Configuración**:
+
+```bash
+# Variables de entorno (.env)
+RATE_LIMIT_DEFAULT=100/minute
+RATE_LIMIT_HISTORY=20/minute
+RATE_LIMIT_BATCH=50/minute
+```
+
+**Rate limiting por tier** (futuro con autenticación):
+
+```python
+# API key prefixes (OPA-306 pendiente integración)
+free_:       100/minute  (default)
+pro_:        1000/minute
+enterprise_: 10000/minute
+```
+
+**Response 429 Too Many Requests**:
+
+```json
+{
+  "error": "Rate limit exceeded",
+  "message": "100 per 1 minute"
+}
+```
+
+**Persistencia**: Los límites se persisten en Redis, sobreviviendo restarts de la API.
+
+**Testing rate limits**:
+
+```bash
+# Saturar endpoint para provocar 429
+for i in {1..101}; do
+  curl http://localhost:8000/v1/quotes/AAPL/latest
+done
+# Request 101 retorna 429
+```
+
+## �🐛 Troubleshooting
 
 ### Error: "Connection to TimescaleDB failed"
 

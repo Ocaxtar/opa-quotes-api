@@ -3,6 +3,7 @@
 import redis.asyncio as redis
 
 from opa_quotes_api.logging_setup import get_logger
+from opa_quotes_api.middleware.circuit_breaker import redis_breaker, CircuitBreakerError
 
 logger = get_logger(__name__)
 
@@ -32,18 +33,28 @@ class CacheService:
 
         Returns:
             Cached value as string, or None if not found/expired
+
+        Raises:
+            CircuitBreakerError: If circuit breaker is open
         """
         try:
-            value = await self.redis.get(key)
+            value = await redis_breaker.call_async(self._get_internal, key)
             if value:
                 logger.debug(f"Cache HIT: {key}")
-                return value.decode('utf-8') if isinstance(value, bytes) else value
             else:
                 logger.debug(f"Cache MISS: {key}")
-                return None
+            return value
+        except CircuitBreakerError:
+            logger.warning(f"Cache GET skipped (circuit open): {key}")
+            raise
         except Exception as e:
             logger.error(f"Cache GET error for key {key}: {e}")
             return None
+
+    async def _get_internal(self, key: str) -> str | None:
+        """Internal method for getting value from Redis."""
+        value = await self.redis.get(key)
+        return value.decode('utf-8') if isinstance(value, bytes) else value
 
     async def set(
         self,
@@ -64,12 +75,19 @@ class CacheService:
         """
         try:
             ttl = ttl or self.default_ttl
-            await self.redis.setex(key, ttl, value)
+            await redis_breaker.call_async(self._set_internal, key, value, ttl)
             logger.debug(f"Cache SET: {key} (TTL: {ttl}s)")
             return True
+        except CircuitBreakerError:
+            logger.warning(f"Cache SET skipped (circuit open): {key}")
+            return False
         except Exception as e:
             logger.error(f"Cache SET error for key {key}: {e}")
             return False
+
+    async def _set_internal(self, key: str, value: str, ttl: int):
+        """Internal method for setting value in Redis."""
+        await self.redis.setex(key, ttl, value)
 
     async def delete(self, key: str) -> bool:
         """

@@ -8,10 +8,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 from prometheus_fastapi_instrumentator import Instrumentator
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from opa_quotes_api.config import get_settings
 from opa_quotes_api.database import engine
 from opa_quotes_api.logging_setup import setup_logging
+from opa_quotes_api.middleware.rate_limit import limiter
 from opa_quotes_api.routers import quotes
 
 # Setup logging
@@ -41,6 +44,10 @@ app = FastAPI(
     version=settings.version,
     lifespan=lifespan,
 )
+
+# Rate limiter setup
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS middleware configuration
 app.add_middleware(

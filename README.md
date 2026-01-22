@@ -283,8 +283,12 @@ poetry run pytest tests/integration/
 ### Tests de Performance
 
 ```powershell
-# Benchmark de latencia
-poetry run python tests/performance/latency_test.py
+# Benchmark de latencia WebSocket (OPA-306)
+poetry run python scripts/benchmark/ws_latency_benchmark.py `
+  --ws-url ws://localhost:8000/v1/ws/quotes `
+  --duration 300 `
+  --warmup 10 `
+  --tickers AAPL,MSFT
 
 # Carga (100 req/s durante 60s)
 poetry run locust -f tests/performance/locustfile.py --host=http://localhost:8000
@@ -306,6 +310,26 @@ poetry run locust -f tests/performance/locustfile.py --host=http://localhost:800
 - **Redis TTL**: 5 segundos para última cotización
 - **Key pattern**: `quote:{ticker}:latest`
 - **Invalidación**: On demand (cuando llega nueva cotización)
+
+### Benchmark WebSocket (OPA-306)
+
+Este benchmark mide latencia end-to-end basada en el `timestamp` del mensaje
+publicado por el streamer y recibido por el cliente WebSocket.
+
+```powershell
+# Ejemplo con múltiples tickers (stream activo en opa-quotes-streamer)
+poetry run python scripts/benchmark/ws_latency_benchmark.py `
+  --ws-url ws://localhost:8000/v1/ws/quotes `
+  --duration 300 `
+  --warmup 10 `
+  --tickers AAPL,MSFT,GOOGL,AMZN,NVDA
+```
+
+**Salida esperada**:
+
+- p50, p95, p99
+- Throughput (msg/s)
+- Samples procesados
 
 ## 🔗 Integración con Ecosistema
 

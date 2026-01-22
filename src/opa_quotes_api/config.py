@@ -1,6 +1,21 @@
 """Configuration module for opa-quotes-api."""
 from functools import lru_cache
 
+# OPA-325: Try to load DB config from opa-infrastructure-state/state.yaml
+_default_db_url = "postgresql+asyncpg://opa_user:opa_password@localhost:5433/opa_quotes"
+
+try:
+    infra_state_path = Path(__file__).parent.parent.parent / 'opa-infrastructure-state'
+    if infra_state_path.exists():
+        sys.path.insert(0, str(infra_state_path))
+        from config_loader import get_db_config
+        _config = get_db_config('quotes')
+        _default_db_url = f"postgresql+asyncpg://{_config['user']}:{_config['password']}@{_config['host']}:{_config['port']}/{_config['database']}"
+        print(f"✓ OPA-325: Loaded DB config from state.yaml: port={_config['port']}")
+except Exception:
+    pass  # Fallback to default
+
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,7 +41,7 @@ class Settings(BaseSettings):
 
     # Monitoring
     prometheus_port: int = 9090
-
+    database_url: str = _default_db_url
     # Authentication
     jwt_secret_key: str = "your-secret-key-here"
     jwt_algorithm: str = "HS256"

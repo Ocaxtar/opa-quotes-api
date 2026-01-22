@@ -21,8 +21,8 @@
 ### Sincronización Automática
 
 **Al inicio de cada run, ejecutar**:
-```bash
-bash scripts/git/check_sync.sh
+```powershell
+.\scripts\git\check_sync.ps1
 ```
 
 **Exit codes**:

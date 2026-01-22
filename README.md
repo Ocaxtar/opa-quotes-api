@@ -81,7 +81,7 @@ cd opa-quotes-api
 poetry install
 
 # Configurar variables de entorno
-cp .env.example .env
+Copy-Item .env.example .env
 # Editar .env con credenciales si es necesario
 
 # Levantar servicios locales (Redis + PostgreSQL/TimescaleDB)
@@ -102,7 +102,7 @@ La API estará disponible en:
 ### Docker Compose
 
 **Desarrollo local** (`docker-compose.yml`):
-```bash
+```powershell
 # Iniciar todos los servicios
 docker-compose up -d
 
@@ -117,7 +117,7 @@ docker-compose down -v
 ```
 
 **Testing** (`docker-compose.test.yml`):
-```bash
+```powershell
 # Iniciar servicios de test (puertos diferentes)
 docker-compose -f docker-compose.test.yml up -d
 
@@ -250,9 +250,9 @@ ws.onclose = () => {
 
 Incluido en `docs/examples/websocket-client.html`. Abrir en navegador:
 
-```bash
+```powershell
 # Desde raíz del proyecto
-open docs/examples/websocket-client.html
+Start-Process docs/examples/websocket-client.html
 # o
 python -m http.server 8080
 # Luego visitar http://localhost:8080/docs/examples/websocket-client.html
@@ -262,7 +262,7 @@ python -m http.server 8080
 
 ### Tests Unitarios
 
-```bash
+```powershell
 # Todos los tests
 poetry run pytest
 
@@ -275,14 +275,14 @@ poetry run pytest --cov=opa_quotes_api --cov-report=html
 
 ### Tests de Integración
 
-```bash
+```powershell
 # Requiere TimescaleDB + Redis operativos
 poetry run pytest tests/integration/
 ```
 
 ### Tests de Performance
 
-```bash
+```powershell
 # Benchmark de latencia
 poetry run python tests/performance/latency_test.py
 
@@ -330,7 +330,7 @@ Este servicio implementa los siguientes contratos formales:
 - ✅ **INV-105**: Returns detailed errors array on partial failure
 
 **Testing contract compliance**:
-```bash
+```powershell
 # Verify contract compliance
 pytest tests/test_quotes_batch.py -v
 
@@ -411,32 +411,32 @@ opa-quotes-api/
 
 ### Error: "Connection to TimescaleDB failed"
 
-```bash
+```powershell
 # Verificar que opa-quotes-storage esté operativo
 curl http://localhost:5432  # TimescaleDB
 
 # Verificar variables de entorno
-echo $TIMESCALE_HOST
-echo $TIMESCALE_USER
-echo $TIMESCALE_PASSWORD
+$env:TIMESCALE_HOST
+$env:TIMESCALE_USER
+$env:TIMESCALE_PASSWORD
 ```
 
 ### Error: "Redis connection timeout"
 
-```bash
+```powershell
 # Verificar Redis
 docker ps | grep redis
 redis-cli ping  # Debe responder "PONG"
 
 # Revisar REDIS_URL en .env
-cat .env | grep REDIS_URL
+Get-Content .env | Select-String "REDIS_URL"
 ```
 
 ### Performance Degradado
 
-```bash
+```powershell
 # Verificar cache hit rate
-curl http://localhost:8000/metrics | grep cache_hit
+curl http://localhost:8000/metrics | Select-String "cache_hit"
 
 # Verificar conexiones TimescaleDB
 psql -U opa_user -d opa_quotes -c "SELECT count(*) FROM pg_stat_activity;"

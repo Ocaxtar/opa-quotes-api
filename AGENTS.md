@@ -1,99 +1,99 @@
 # AGENTS.md - opa-quotes-api
 
-> 🎯 **Guía para agentes IA** - Repositorio operativo del ecosistema OPA_Machine.  
-> **Documentación completa**: [Supervisor OPA_Machine](https://github.com/Ocaxtar/opa-supervisor)
+> 🎯 **Guía específica para agentes IA** en este repo operativo.  
+> **Supervisión**: [OPA_Machine/AGENTS.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/AGENTS.md)
 
 ---
 
 ## 🚦 Pre-Flight Checklist (OBLIGATORIO)
 
-**Antes de cualquier operación**:
-
-| Acción | Recurso | Cuándo |
-|--------|---------|--------|
-| 🔄 **Sincronizar workspace** | Script `scripts/git/check_sync.sh` (incluye activación MCP) | ⚠️ **INICIO DE CADA RUN** |
-| Verificar puertos/Docker | [service-inventory.md](https://github.com/Ocaxtar/opa-supervisor/blob/main/docs/infrastructure/service-inventory.md) | ⚠️ Antes de Docker |
-| Consultar infraestructura | [opa-infrastructure-state](https://github.com/Ocaxtar/opa-infrastructure-state) | ⚠️ Antes de Docker/DB/Redis |
-| Cargar skill necesario | Skills globales en `~/.copilot/skills/` | Antes de tarea compleja |
-| Trabajar en issue | Skill global `git-linear-workflow` | Antes de branch/commit |
-| Usar Linear MCP tools | Skill global `linear-mcp-tool` | Si tool falla/necesitas categorías extra |
-
-### Sincronización Automática
-
-**Al inicio de cada run, ejecutar**:
-```powershell
-.\scripts\git\check_sync.ps1
-```
-
-**Exit codes**:
-- `0`: ✅ Sincronizado (continuar)
-- `2`: ⚠️ Commits locales sin push (avisar usuario)
-- `3`: ⚠️ Cambios remotos en código (avisar usuario)
-- `4`: ❌ Divergencia detectada (requerir resolución manual)
-- `5`: ⚠️ No se pudo conectar con remoto
-
-**Pull automático**: Si solo hay cambios en `docs/`, `AGENTS.md`, `README.md`, `ROADMAP.md` → pull automático aplicado.
-
-**Activación MCP incluida**: El skill `workspace-sync` del supervisor OPA_Machine activa automáticamente los grupos principales de MCP tools (Linear Issues, Workspace Overview, GitHub Repos, GitHub Issues). Si necesitas tools de categorías adicionales (documentos, tracking, team management, PR reviews), actívalas bajo demanda.
-
-**Ver detalles completos**: Consultar skill `workspace-sync` en opa-supervisor.
+| Acción | Documento/Skill | Cuándo |
+|--------|-----------------|--------|
+| Consultar infraestructura | [opa-infrastructure-state](https://github.com/Ocaxtar/opa-infrastructure-state/blob/main/state.yaml) | ANTES de Docker/DB/Redis |
+| Sincronizar workspace | Skill `workspace-sync` (supervisor) | Inicio sesión |
+| Verificar estado repos | [DASHBOARD.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/DASHBOARD.md) | Inicio sesión |
+| Trabajar en issue | Skill `git-linear-workflow` | Antes branch/commit |
+| Usar Linear MCP | Skill `linear-mcp-tool` | Si tool falla/UUID |
 
 ---
 
-## 📋 Información del Proyecto
+## 📋 Info del Repositorio
 
 **Nombre**: opa-quotes-api  
-**Módulo**: Cotización (Módulo 2)  
-**Tipo**: api (FastAPI)  
-**Fase**: 1  
-**Equipo Linear**: OPA  
-**Repositorio**: https://github.com/Ocaxtar/opa-quotes-api  
-**Puerto asignado**: 8000
+**Tipo**: API REST (FastAPI)  
+**Propósito**: Expone endpoints para cotizaciones en tiempo real y datos históricos  
+**Puerto**: 8000  
+**Team Linear**: OPA  
+**Tecnologías**: Python 3.12, FastAPI, SQLAlchemy, Redis (cache)
 
-### Rol en el Ecosistema
+**Funcionalidad**:
+- GET /quotes/stream - SSE stream de cotizaciones real-time
+- GET /quotes/historical - Consulta históricos TimescaleDB
+- GET /quotes/snapshot - Snapshot actual de un ticker
 
-API REST para consulta de cotizaciones. Expone endpoints para obtener precios históricos y en tiempo real desde TimescaleDB.
-
-### Dependencias
-
-| Servicio | Puerto | Propósito |
-|----------|--------|-----------|
-| TimescaleDB (quotes-storage) | 5433 | Base de datos |
-| API | 8000 | Servicio HTTP |
+**Dependencias**:
+- opa-quotes-storage (TimescaleDB en puerto 5433)
+- opa-quotes-streamer (via Redis canal `quotes:stream`)
 
 ---
 
-## ⚠️ Reglas Críticas
+## ⚠️ Reglas Críticas Específicas
 
-### 1. Prefijo en Comentarios Linear
-
-```
-🤖 Agente opa-quotes-api: [mensaje]
-```
-
-**Obligatorio** en todo comentario. Auditoría supervisor detecta violaciones.
-
-### 2. Commits con Referencia a Issue
+### 1. Puerto PostgreSQL = 5433 (NO 5432)
 
 ```
-❌ git commit -m "Fix bug"
-✅ git commit -m "OPA-XXX: Fix bug description"
+❌ Conectar a localhost:5432
+✅ Conectar a localhost:5433
 ```
 
-### 3. Puerto DB 5433 (NO 5432)
+**Motivo**: PostgreSQL local Windows ocupa 5432. Ver [service-inventory.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/infrastructure/service-inventory.md).
+
+### 2. Usar opa-infrastructure-state para schemas
 
 ```
-❌ DATABASE_URL=...localhost:5432/... → Conflicto PostgreSQL local
-✅ DATABASE_URL=...localhost:5433/... → Puerto correcto
+❌ Asumir estructura DB desde docs conceptuales
+✅ Consultar state-db-schemas.yaml.md ANTES de SQLAlchemy
 ```
 
-### 4. Pre-Done Checklist
+**Motivo**: OPA-342 (PKs incorrectas → 0 resultados).
 
-Antes de mover issue a Done:
-- [ ] Código commiteado y pusheado
-- [ ] Tests pasan (si aplica)
-- [ ] Comentario de cierre con prefijo
-- [ ] Verificar archivos en GitHub web (no solo local)
+### 3. Cache Redis para todas las queries
+
+```python
+# ✅ Patrón obligatorio
+@app.get("/quotes/{ticker}")
+async def get_quote(ticker: str):
+    cache_key = f"quote:{ticker}"
+    cached = await redis.get(cache_key)
+    if cached:
+        return cached
+    
+    # Query DB solo si no hay cache
+    result = db.query(...)
+    await redis.setex(cache_key, 60, result)
+    return result
+```
+
+**TTL**:
+- Snapshots: 5s
+- Históricos: 300s
+
+---
+
+## 🔄 Workflows Especiales
+
+### Antes de Crear SQLAlchemy Models (OPA-343)
+
+**Al consumir tablas de otros repos**:
+
+1. **CONSULTAR** [state-db-schemas.yaml.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/infrastructure/state-db-schemas.yaml.md) para estructura real
+2. Verificar primary_key, tipos de columnas, foreign_keys
+3. Crear models basados en docs (no asumir estructura)
+
+**Por qué**: Previene bugs tipo OPA-342 (SQLAlchemy models con PKs incorrectas → queries devuelven 0 resultados).
+
+**Tablas consumidas**:
+- `quotes.quotes` (cuando se implemente en opa-quotes-storage)
 
 ---
 
@@ -101,41 +101,37 @@ Antes de mover issue a Done:
 
 | Elemento | Convención |
 |----------|------------|
-| Idioma código | Inglés |
-| Idioma comentarios | Español |
-| Commits | `OPA-XXX: Descripción` |
-| Python | 3.12 (NO 3.13) |
-| Framework | FastAPI |
-| DB Driver | asyncpg |
+| **Idioma código** | Inglés |
+| **Idioma interacción** | Español |
+| **Formato commit** | `OPA-XXX: Descripción imperativa` |
+| **Branches** | `username/opa-xxx-descripcion` |
+| **Labels issues** | `Feature/Bug` + `opa-quotes-api` |
 
 ---
 
-## 📚 Skills Disponibles
+## 🎯 Skills Disponibles (carga bajo demanda)
 
-**Skills Globales** (ubicación: `~/.copilot/skills/`):
+| Skill | Ubicación | Triggers |
+|-------|-----------|----------|
+| `git-linear-workflow` | `~/.copilot/skills/` | issue, branch, commit, PR |
+| `linear-mcp-tool` | `~/.copilot/skills/` | error Linear, UUID |
+| `run-efficiency` | `~/.copilot/skills/` | tokens, context |
 
-| Skill | Propósito |
-|-------|-----------|
-| `git-linear-workflow` | Workflow Git+Linear completo |
-| `linear-mcp-tool` | Errores MCP Linear y soluciones |
-| `run-efficiency` | Gestión tokens, pre-Done checklist |
-
-> ⚠️ **Nota**: Skills ya no tienen carpeta local `.github/skills/`. Están centralizados en ubicación global del usuario.
-
-**Skills OPA específicos**: Ver [opa-supervisor/.github/skills/](https://github.com/Ocaxtar/opa-supervisor/tree/main/.github/skills) para skills de arquitectura, auditoría y transición de fases.
+**Skills supervisor** (consultar desde [supervisor](https://github.com/Ocaxtar/OPA_Machine)):
+- `multi-workspace`, `contract-validator`, `ecosystem-auditor`
 
 ---
 
-## 🔗 Referencias Supervisor
+## 📚 Referencias
 
-| Documento | Propósito |
-|-----------|-----------|
-| [AGENTS.md](https://github.com/Ocaxtar/opa-supervisor/blob/main/AGENTS.md) | Guía maestra |
-| [service-inventory.md](https://github.com/Ocaxtar/opa-supervisor/blob/main/docs/infrastructure/service-inventory.md) | Puertos y conflictos |
-| [opa-infrastructure-state](https://github.com/Ocaxtar/opa-infrastructure-state) | Estado infraestructura |
-| [ROADMAP.md](https://github.com/Ocaxtar/opa-supervisor/blob/main/ROADMAP.md) | Fases del proyecto |
-| [Contratos](https://github.com/Ocaxtar/opa-supervisor/tree/main/docs/contracts) | APIs y schemas |
+| Recurso | URL |
+|---------|-----|
+| Supervisor AGENTS.md | https://github.com/Ocaxtar/OPA_Machine/blob/main/AGENTS.md |
+| opa-infrastructure-state | https://github.com/Ocaxtar/opa-infrastructure-state/blob/main/state.yaml |
+| DB Schemas Source of Truth | https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/infrastructure/state-db-schemas.yaml.md |
+| Service Inventory | https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/infrastructure/service-inventory.md |
+| DASHBOARD | https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/DASHBOARD.md |
 
 ---
 
-*Actualizado OPA-298: Skills migrados a ubicación global - 2026-01-21*
+*Documento sincronizado con supervisor v2.1 (2026-01-21) - OPA-299*

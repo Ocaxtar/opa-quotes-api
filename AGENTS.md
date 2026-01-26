@@ -97,6 +97,62 @@ async def get_quote(ticker: str):
 
 ---
 
+## 🔧 Operaciones de Infraestructura
+
+> **OBLIGATORIO**: Ejecutar ANTES de cualquier operación Docker/DB/Redis.
+
+### Workflow de 3 Pasos
+
+#### Paso 1: Ejecutar Preflight Check
+
+```bash
+# Desde este repo
+python ../opa-supervisor/scripts/infrastructure/preflight_check.py --module quotes --operation docker-compose
+```
+
+#### Paso 2: Evaluar Resultado
+
+| Resultado | Acción |
+|-----------|--------|
+| ✅ PREFLIGHT PASSED | Continuar con la tarea |
+| ❌ PREFLIGHT FAILED | **NO continuar**. Reportar al usuario qué servicios faltan |
+
+#### Paso 3: Configurar usando state.yaml
+
+**Source of Truth**: `opa-infrastructure-state/state.yaml`
+
+```python
+# ✅ CORRECTO: Variables de entorno con fallback
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://opa_user:opa_password@localhost:5433/opa_quotes")
+
+# ❌ INCORRECTO: Hardcodear valores
+DATABASE_URL = "postgresql://opa_user:opa_password@localhost:5433/opa_quotes"
+```
+
+### Anti-Patrones (PROHIBIDO)
+
+| Anti-Patrón | Por qué está mal |
+|-------------|------------------|
+| ❌ Consultar `service-inventory.md` como fuente | Es documento AUTO-GENERADO, no editable |
+| ❌ Hardcodear puertos/credenciales | Dificulta mantenimiento y causa bugs |
+| ❌ Asumir que servicio existe sin validar | Causa "Connection refused" en deploy |
+| ❌ Usar puerto 5432 para Docker | PostgreSQL local Windows lo ocupa |
+| ❌ Continuar si preflight falla | Propaga configuración inválida |
+
+### Quick Reference: Puertos
+
+| Servicio | Puerto | Módulo |
+|----------|--------|--------|
+| TimescaleDB Quotes | 5433 | Quotes |
+| TimescaleDB Capacity | 5434 | Capacity |
+| Redis Dev | 6381 | Shared |
+| quotes-api | 8000 | Quotes |
+| capacity-api | 8001 | Capacity |
+
+> **Source of Truth**: [opa-infrastructure-state/state.yaml](https://github.com/Ocaxtar/opa-infrastructure-state/blob/main/state.yaml)
+
+---
+
 ## 🔧 Convenciones
 
 | Elemento | Convención |
@@ -118,7 +174,7 @@ async def get_quote(ticker: str):
 | `run-efficiency` | `~/.copilot/skills/` | tokens, context |
 
 **Skills supervisor** (consultar desde [supervisor](https://github.com/Ocaxtar/OPA_Machine)):
-- `multi-workspace`, `contract-validator`, `ecosystem-auditor`
+- `multi-workspace`, `contract-validator`, `ecosystem-auditor`, `infrastructure-lookup`
 
 ---
 
@@ -134,4 +190,4 @@ async def get_quote(ticker: str):
 
 ---
 
-*Documento sincronizado con supervisor v2.1 (2026-01-21) - OPA-299*
+*Documento sincronizado con supervisor v2.1 (2026-01-26) - OPA-368*

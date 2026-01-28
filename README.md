@@ -67,7 +67,7 @@ API REST y WebSockets para servir cotizaciones de mercado en tiempo real del eco
 - Python 3.12+
 - Poetry 1.7+
 - Docker & Docker Compose
-- TimescaleDB operativo (vía opa-quotes-storage)
+- **TimescaleDB externo operativo en puerto 5433** (vía opa-quotes-storage)
 - Redis 7+
 
 ### Instalación
@@ -84,7 +84,7 @@ poetry install
 Copy-Item .env.example .env
 # Editar .env con credenciales si es necesario
 
-# Levantar servicios locales (Redis + PostgreSQL/TimescaleDB)
+# Levantar servicios locales (solo Redis - TimescaleDB debe estar en puerto 5433)
 docker-compose up -d
 
 # Verificar que los servicios están operativos
@@ -130,8 +130,9 @@ docker-compose -f docker-compose.test.yml down -v
 
 **Servicios incluidos**:
 - **Redis**: Puerto 6379 (dev) / 6380 (test) - Cache de cotizaciones
-- **PostgreSQL + TimescaleDB**: Puerto 5432 (dev) / 5433 (test) - Base de datos
 - **API**: Puerto 8000 - FastAPI con hot reload
+
+**Nota**: La base de datos TimescaleDB debe estar corriendo externamente en puerto 5433 (vía opa-quotes-storage). Ver [opa-quotes-storage](https://github.com/Ocaxtar/opa-quotes-storage) para setup.
 
 Ver [init-db/README.md](init-db/README.md) para más detalles sobre la configuración de Docker.
       - REDIS_URL=redis://redis:6379/0
@@ -437,7 +438,7 @@ opa-quotes-api/
 
 ```powershell
 # Verificar que opa-quotes-storage esté operativo
-curl http://localhost:5432  # TimescaleDB
+curl http://localhost:5433  # TimescaleDB (puerto correcto)
 
 # Verificar variables de entorno
 $env:TIMESCALE_HOST

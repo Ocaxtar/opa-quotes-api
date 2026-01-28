@@ -6,7 +6,7 @@
 
 - Python 3.12.x
 - Poetry 2.0+
-- PostgreSQL 14+ (para desarrollo local) o acceso a TimescaleDB
+- **TimescaleDB externo corriendo en puerto 5433** (vía opa-quotes-storage)
 - Redis 7+ (para caché)
 
 ### 1. Clonar el Repositorio
@@ -35,24 +35,26 @@ cp .env.example .env
 Editar `.env` con tus credenciales:
 
 ```env
-DATABASE_URL=postgresql+asyncpg://opa:opa_password@localhost:5432/quotes
+DATABASE_URL=postgresql+asyncpg://opa_user:opa_password@localhost:5433/opa_quotes
 REDIS_URL=redis://localhost:6379/0
 LOG_LEVEL=INFO
 API_PORT=8000
 ```
 
-### 4. Base de Datos (Opcional para desarrollo)
+### 4. Base de Datos Externa (Requerida)
 
-Si necesitas una base de datos local para desarrollo:
+Este servicio se conecta a la base de datos TimescaleDB compartida corriendo en puerto **5433**.
 
-```bash
-# Usando Docker Compose (recomendado)
-docker-compose up -d
+**Importante**: Debes tener corriendo `opa-quotes-storage` antes de iniciar este servicio.
 
-# O manualmente con PostgreSQL local
-createdb quotes
-psql quotes -c "CREATE USER opa WITH PASSWORD 'opa_password';"
-psql quotes -c "GRANT ALL PRIVILEGES ON DATABASE quotes TO opa;"
+Ver setup en: [opa-quotes-storage](https://github.com/Ocaxtar/opa-quotes-storage)
+
+```powershell
+# Verificar que TimescaleDB está operativo en puerto 5433
+Test-NetConnection localhost -Port 5433
+
+# O usando psql
+psql -h localhost -p 5433 -U opa_user -d opa_quotes -c "SELECT version();"
 ```
 
 ### 5. Ejecutar Migraciones (Cuando estén implementadas)

@@ -14,6 +14,7 @@
 | Verificar estado repos | [DASHBOARD.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/DASHBOARD.md) | Inicio sesión |
 | Trabajar en issue | Skill `git-linear-workflow` | Antes branch/commit |
 | Usar Linear MCP | Skill `linear-mcp-tool` | Si tool falla/UUID |
+| Operaciones Docker seguras | Skill `docker-safe-operations` | Antes docker-compose down -v, gestión volúmenes |
 
 ---
 

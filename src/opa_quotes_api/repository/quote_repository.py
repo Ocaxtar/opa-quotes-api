@@ -39,7 +39,7 @@ class QuoteRepository:
             query = (
                 select(RealTimeQuote)
                 .where(RealTimeQuote.ticker == ticker.upper())
-                .order_by(desc(RealTimeQuote.timestamp))
+                .order_by(desc(RealTimeQuote.time))
                 .limit(1)
             )
 
@@ -50,11 +50,11 @@ class QuoteRepository:
                 logger.debug(f"Retrieved latest quote for {ticker}")
                 return QuoteResponse(
                     ticker=quote.ticker,
-                    timestamp=quote.timestamp,
+                    timestamp=quote.time,
                     open=float(quote.open),
                     high=float(quote.high),
                     low=float(quote.low),
-                    close=float(quote.close),
+                    close=float(quote.price),
                     volume=int(quote.volume),
                     bid=float(quote.bid) if quote.bid else None,
                     ask=float(quote.ask) if quote.ask else None
@@ -102,18 +102,18 @@ class QuoteRepository:
             # Build time_bucket query
             query = text("""
                 SELECT
-                    time_bucket(:pg_interval, timestamp) AS bucket,
-                    FIRST(open, timestamp) AS open,
+                    time_bucket(:pg_interval, time) AS bucket,
+                    FIRST(open, time) AS open,
                     MAX(high) AS high,
                     MIN(low) AS low,
-                    LAST(close, timestamp) AS close,
+                    LAST(price, time) AS close,
                     SUM(volume) AS volume,
-                    LAST(bid, timestamp) AS bid,
-                    LAST(ask, timestamp) AS ask
+                    LAST(bid, time) AS bid,
+                    LAST(ask, time) AS ask
                 FROM quotes.real_time
                 WHERE ticker = :ticker
-                  AND timestamp >= :start_date
-                  AND timestamp <= :end_date
+                  AND time >= :start_date
+                  AND time <= :end_date
                 GROUP BY bucket
                 ORDER BY bucket ASC
             """)
@@ -167,7 +167,7 @@ class QuoteRepository:
             latest_subq = (
                 select(
                     RealTimeQuote.ticker,
-                    func.max(RealTimeQuote.timestamp).label("max_timestamp")
+                    func.max(RealTimeQuote.time).label("max_time")
                 )
                 .where(RealTimeQuote.ticker.in_(tickers_upper))
                 .group_by(RealTimeQuote.ticker)
@@ -180,7 +180,7 @@ class QuoteRepository:
                 .join(
                     latest_subq,
                     (RealTimeQuote.ticker == latest_subq.c.ticker) &
-                    (RealTimeQuote.timestamp == latest_subq.c.max_timestamp)
+                    (RealTimeQuote.time == latest_subq.c.max_time)
                 )
             )
 
@@ -192,11 +192,11 @@ class QuoteRepository:
             return [
                 QuoteResponse(
                     ticker=q.ticker,
-                    timestamp=q.timestamp,
+                    timestamp=q.time,
                     open=float(q.open),
                     high=float(q.high),
                     low=float(q.low),
-                    close=float(q.close),
+                    close=float(q.price),
                     volume=int(q.volume),
                     bid=float(q.bid) if q.bid else None,
                     ask=float(q.ask) if q.ask else None
@@ -227,34 +227,44 @@ class QuoteRepository:
         try:
             for quote_data in quotes:
                 try:
-                    # Prepare OHLC values (use close if not provided)
+                    # Prepare values
                     open_val = quote_data.open if quote_data.open is not None else quote_data.close
                     high_val = quote_data.high if quote_data.high is not None else quote_data.close
                     low_val = quote_data.low if quote_data.low is not None else quote_data.close
-                    close_val = quote_data.close
+                    price_val = quote_data.close
                     volume_val = quote_data.volume if quote_data.volume is not None else 0
 
                     # Upsert statement with ON CONFLICT
                     stmt = insert(RealTimeQuote).values(
+                        time=quote_data.timestamp,
                         ticker=quote_data.ticker.upper(),
-                        timestamp=quote_data.timestamp,
+                        price=price_val,
+                        change=0.0,  # TODO: Calculate from previous_close
+                        change_percent=0.0,  # TODO: Calculate
+                        volume=volume_val,
+                        bid=None,
+                        ask=None,
+                        bid_size=None,
+                        ask_size=None,
                         open=open_val,
                         high=high_val,
                         low=low_val,
-                        close=close_val,
-                        volume=volume_val,
-                        bid=None,
-                        ask=None
+                        previous_close=price_val,  # TODO: Get actual previous close
+                        market_cap=None,
+                        pe_ratio=None,
+                        avg_volume_10d=None,
+                        market_status="open",  # TODO: Get actual status
+                        exchange="NASDAQ"  # TODO: Get actual exchange
                     )
 
-                    # ON CONFLICT (ticker, timestamp) DO UPDATE
+                    # ON CONFLICT (time, ticker) DO UPDATE
                     stmt = stmt.on_conflict_do_update(
-                        index_elements=['ticker', 'timestamp'],
+                        index_elements=['time', 'ticker'],
                         set_={
+                            'price': stmt.excluded.price,
                             'open': stmt.excluded.open,
                             'high': stmt.excluded.high,
                             'low': stmt.excluded.low,
-                            'close': stmt.excluded.close,
                             'volume': stmt.excluded.volume,
                         }
                     )

@@ -1,123 +1,46 @@
-# Docker Compose Configuration
+# Database Initialization Scripts
 
-Este directorio contiene las configuraciones de Docker Compose para desarrollo y testing.
+Este directorio contiene scripts de inicialización para TimescaleDB.
 
 ## Archivos
 
-- `docker-compose.yml` - Configuración para desarrollo local
-- `docker-compose.test.yml` - Configuración para tests de integración
-- `init-db/01-init-timescale.sh` - Script de inicialización de TimescaleDB
+- `01-init-timescale.sh` - Script de inicialización automático (Docker entrypoint)
+- `02-create-real-time-table.sql` - Script SQL para ejecutar manualmente (OPA-423)
 
-## Uso
+## Uso Automático (Docker)
 
-### Desarrollo Local
+Los scripts `.sh` se ejecutan automáticamente cuando se crea un nuevo contenedor de TimescaleDB desde el proyecto `opa-quotes-storage`.
 
-```bash
-# Levantar todos los servicios
-docker-compose up -d
+## Uso Manual (Base de Datos Existente)
 
-# Ver logs
-docker-compose logs -f
-
-# Verificar estado
-docker-compose ps
-
-# Detener servicios
-docker-compose down
-
-# Detener y eliminar volúmenes
-docker-compose down -v
-```
-
-### Testing
+Si la base de datos ya está corriendo y necesitas crear/actualizar la tabla `quotes.real_time`:
 
 ```bash
-# Levantar servicios de test
-docker-compose -f docker-compose.test.yml up -d
+# Desde opa-quotes-storage o donde esté el contenedor TimescaleDB
+psql -h localhost -p 5433 -U opa_user -d opa_quotes -f init-db/02-create-real-time-table.sql
 
-# Ejecutar tests
-poetry run pytest
-
-# Limpiar
-docker-compose -f docker-compose.test.yml down -v
+# O con Docker
+docker exec -i timescaledb_quotes psql -U opa_user -d opa_quotes < init-db/02-create-real-time-table.sql
 ```
 
-## Servicios
+## Schema de quotes.real_time
 
-### Redis
-- **Puerto**: 6379 (dev) / 6380 (test)
-- **Persistencia**: AOF enabled (dev) / tmpfs (test)
-- **Health check**: `redis-cli ping`
+La tabla sigue el contrato definido en `opa-infrastructure-state/contracts/data-models/quotes.md`:
 
-### PostgreSQL + TimescaleDB
-- **Puerto**: 5432 (dev) / 5433 (test)
-- **Usuario**: opa / test_user
-- **Database**: quotes / test_quotes
-- **Health check**: `pg_isready`
-
-### API
-- **Puerto**: 8000
-- **Hot reload**: Enabled en desarrollo
-- **Dependencias**: Espera health checks de Redis y PostgreSQL
-
-## Volúmenes
-
-Los datos persisten en volúmenes Docker:
-- `postgres_data` - Datos de PostgreSQL
-- `redis_data` - Datos de Redis
-
-Para limpiar todos los datos:
-```bash
-docker-compose down -v
-```
-
-## Inicialización de Base de Datos
-
-El script `init-db/01-init-timescale.sh` se ejecuta automáticamente al crear el contenedor de PostgreSQL y:
-
-1. Crea la extensión TimescaleDB
-2. Crea el schema `quotes`
-3. Crea la tabla `quotes.real_time`
-4. Convierte la tabla a hypertable (particionamiento por tiempo)
-5. Crea índices optimizados
-
-## Variables de Entorno
-
-Las configuraciones se pueden sobrescribir creando un archivo `.env`:
-
-```env
-DATABASE_URL=postgresql+asyncpg://opa:opa_password@localhost:5432/quotes
-REDIS_URL=redis://localhost:6379/0
-LOG_LEVEL=INFO
-```
+- **Columnas**: time, ticker, price, change, change_percent, volume, bid, ask, bid_size, ask_size, open, high, low, previous_close, market_cap, pe_ratio, avg_volume_10d, market_status, exchange
+- **Hypertable**: Particionada por columna `time`
+- **Índices**: ticker+time (DESC), exchange+time (DESC)
+- **Política retención**: 90 días (Fase 2), 1 año (Fase 6)
 
 ## Troubleshooting
 
-### Puerto en uso
-```bash
-# Verificar puertos en uso
-netstat -an | grep 5432
-netstat -an | grep 6379
+### "relation quotes.real_time does not exist"
 
-# Cambiar puertos en docker-compose.yml si es necesario
-```
+Este error (OPA-423) ocurre cuando el servicio `opa-quotes-streamer` intenta escribir a TimescaleDB pero la tabla no existe:
 
-### Contenedores no inician
-```bash
-# Ver logs de errores
-docker-compose logs postgres
-docker-compose logs redis
+**Solución**:
+1. Ejecutar `02-create-real-time-table.sql` manualmente (ver sección "Uso Manual")
+2. O recrear el contenedor de TimescaleDB para que ejecute `01-init-timescale.sh`
 
-# Recrear contenedores
-docker-compose down -v
-docker-compose up -d
-```
-
-### Base de datos no inicializa
-```bash
-# Verificar permisos del script
-chmod +x init-db/01-init-timescale.sh
-
-# Ver logs de inicialización
-docker-compose logs postgres | grep -A 20 "init-timescale"
-```
+**Prevención**:
+- Asegúrate de que `opa-quotes-storage` esté inicializado antes de habilitar `PUBLISHER_ENABLED` en `opa-quotes-streamer`

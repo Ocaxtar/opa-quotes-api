@@ -10,11 +10,32 @@
 | Acción | Documento/Skill | Cuándo |
 |--------|-----------------|--------|
 | Consultar infraestructura | [opa-infrastructure-state](https://github.com/Ocaxtar/opa-infrastructure-state/blob/main/state.yaml) | ANTES de Docker/DB/Redis |
+| **Consultar schema DB** | **[state.yaml → schemas](https://github.com/Ocaxtar/opa-infrastructure-state/blob/main/state.yaml)** + **Skill `infrastructure-lookup`** | ⚠️ **ANTES** de crear/modificar modelos SQLAlchemy, Pydantic, migraciones SQL |
 | Sincronizar workspace | Skill `workspace-sync` (supervisor) | Inicio sesión |
 | Verificar estado repos | [DASHBOARD.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/DASHBOARD.md) | Inicio sesión |
 | Trabajar en issue | Skill `git-linear-workflow` | Antes branch/commit |
 | Usar Linear MCP | Skill `linear-mcp-tool` | Si tool falla/UUID |
 | Operaciones Docker seguras | Skill `docker-safe-operations` | Antes docker-compose down -v, gestión volúmenes |
+
+### ⏭️ Cuándo NO Consultar Schemas
+
+**Evitar overhead** en estos casos:
+
+| Situación | Acción |
+|-----------|---------|
+| 🔍 Leer código existente | NO consultar (solo lectura) |
+| 🧪 Ejecutar tests | NO consultar (ya validados) |
+| 📝 Actualizar documentación | NO consultar (no toca DB) |
+| 🔧 Refactors sin cambios de DB | NO consultar (lógica interna) |
+| 🚀 Deploy sin cambios de schema | NO consultar (infraestructura) |
+
+**OBLIGATORIO consultar** cuando:
+- ✅ Crear nueva tabla (migration + model)
+- ✅ Añadir/modificar columnas (ALTER TABLE)
+- ✅ Crear modelos SQLAlchemy/Pydantic de tablas existentes
+- ✅ Validar tipos de datos antes de query
+
+> **Guía completa**: Skill `infrastructure-lookup` v2.0 en supervisor (Caso 2: Operaciones con Schemas).
 
 ---
 

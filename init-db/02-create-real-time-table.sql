@@ -6,8 +6,8 @@ CREATE SCHEMA IF NOT EXISTS quotes;
 
 -- Crear tabla de cotizaciones en tiempo real
 CREATE TABLE IF NOT EXISTS quotes.real_time (
-    time TIMESTAMPTZ NOT NULL,
     ticker VARCHAR(5) NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL,
     price DOUBLE PRECISION NOT NULL,
     change DOUBLE PRECISION NOT NULL,
     change_percent DOUBLE PRECISION NOT NULL,
@@ -24,15 +24,16 @@ CREATE TABLE IF NOT EXISTS quotes.real_time (
     pe_ratio DOUBLE PRECISION,
     avg_volume_10d BIGINT,
     market_status VARCHAR(20) NOT NULL,
-    exchange VARCHAR(10) NOT NULL
+    exchange VARCHAR(10) NOT NULL,
+    PRIMARY KEY (ticker, timestamp)
 );
 
 -- Convertir a hypertable de TimescaleDB
-SELECT create_hypertable('quotes.real_time', 'time', if_not_exists => TRUE);
+SELECT create_hypertable('quotes.real_time', 'timestamp', if_not_exists => TRUE);
 
 -- Crear índices para optimizar consultas
-CREATE INDEX IF NOT EXISTS idx_quotes_real_time_ticker_time ON quotes.real_time (ticker, time DESC);
-CREATE INDEX IF NOT EXISTS idx_quotes_real_time_exchange ON quotes.real_time (exchange, time DESC);
+CREATE INDEX IF NOT EXISTS idx_quotes_real_time_ticker_timestamp ON quotes.real_time (ticker, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_quotes_real_time_exchange ON quotes.real_time (exchange, timestamp DESC);
 
 -- Otorgar permisos (ajustar usuario según configuración)
 GRANT ALL PRIVILEGES ON SCHEMA quotes TO opa_user;

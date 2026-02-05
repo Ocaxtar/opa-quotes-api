@@ -39,7 +39,7 @@ class QuoteRepository:
             query = (
                 select(RealTimeQuote)
                 .where(RealTimeQuote.ticker == ticker.upper())
-                .order_by(desc(RealTimeQuote.time))
+                .order_by(desc(RealTimeQuote.timestamp))
                 .limit(1)
             )
 
@@ -50,7 +50,7 @@ class QuoteRepository:
                 logger.debug(f"Retrieved latest quote for {ticker}")
                 return QuoteResponse(
                     ticker=quote.ticker,
-                    timestamp=quote.time,
+                    timestamp=quote.timestamp,
                     open=float(quote.open),
                     high=float(quote.high),
                     low=float(quote.low),
@@ -102,18 +102,18 @@ class QuoteRepository:
             # Build time_bucket query
             query = text("""
                 SELECT
-                    time_bucket(:pg_interval, time) AS bucket,
-                    FIRST(open, time) AS open,
+                    time_bucket(:pg_interval, timestamp) AS bucket,
+                    FIRST(open, timestamp) AS open,
                     MAX(high) AS high,
                     MIN(low) AS low,
-                    LAST(price, time) AS close,
+                    LAST(price, timestamp) AS close,
                     SUM(volume) AS volume,
-                    LAST(bid, time) AS bid,
-                    LAST(ask, time) AS ask
+                    LAST(bid, timestamp) AS bid,
+                    LAST(ask, timestamp) AS ask
                 FROM quotes.real_time
                 WHERE ticker = :ticker
-                  AND time >= :start_date
-                  AND time <= :end_date
+                  AND timestamp >= :start_date
+                  AND timestamp <= :end_date
                 GROUP BY bucket
                 ORDER BY bucket ASC
             """)
@@ -167,7 +167,7 @@ class QuoteRepository:
             latest_subq = (
                 select(
                     RealTimeQuote.ticker,
-                    func.max(RealTimeQuote.time).label("max_time")
+                    func.max(RealTimeQuote.timestamp).label("max_timestamp")
                 )
                 .where(RealTimeQuote.ticker.in_(tickers_upper))
                 .group_by(RealTimeQuote.ticker)
@@ -180,7 +180,7 @@ class QuoteRepository:
                 .join(
                     latest_subq,
                     (RealTimeQuote.ticker == latest_subq.c.ticker) &
-                    (RealTimeQuote.time == latest_subq.c.max_time)
+                    (RealTimeQuote.timestamp == latest_subq.c.max_timestamp)
                 )
             )
 
@@ -192,7 +192,7 @@ class QuoteRepository:
             return [
                 QuoteResponse(
                     ticker=q.ticker,
-                    timestamp=q.time,
+                    timestamp=q.timestamp,
                     open=float(q.open),
                     high=float(q.high),
                     low=float(q.low),
@@ -236,7 +236,7 @@ class QuoteRepository:
 
                     # Upsert statement with ON CONFLICT
                     stmt = insert(RealTimeQuote).values(
-                        time=quote_data.timestamp,
+                        timestamp=quote_data.timestamp,
                         ticker=quote_data.ticker.upper(),
                         price=price_val,
                         change=0.0,  # TODO: Calculate from previous_close
@@ -257,9 +257,9 @@ class QuoteRepository:
                         exchange="NASDAQ"  # TODO: Get actual exchange
                     )
 
-                    # ON CONFLICT (time, ticker) DO UPDATE
+                    # ON CONFLICT (timestamp, ticker) DO UPDATE
                     stmt = stmt.on_conflict_do_update(
-                        index_elements=['time', 'ticker'],
+                        index_elements=['timestamp', 'ticker'],
                         set_={
                             'price': stmt.excluded.price,
                             'open': stmt.excluded.open,

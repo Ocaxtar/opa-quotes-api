@@ -10,11 +10,13 @@
 | Acción | Documento/Skill | Cuándo |
 |--------|-----------------|--------|
 | Consultar infraestructura | [opa-infrastructure-state](https://github.com/Ocaxtar/opa-infrastructure-state/blob/main/state.yaml) | ANTES de Docker/DB/Redis |
-| Sincronizar workspace | Skill `workspace-sync` (supervisor) | Inicio sesión |
+| 🔄 **Sincronizar workspace** | Skill `workspace-sync` **(incluye activar MCP tools)** | ⚠️ **INICIO DE CADA RUN** |
 | Verificar estado repos | [DASHBOARD.md](https://github.com/Ocaxtar/OPA_Machine/blob/main/docs/DASHBOARD.md) | Inicio sesión |
 | Trabajar en issue | Skill `git-linear-workflow` | Antes branch/commit |
 | Usar Linear MCP | Skill `linear-mcp-tool` | Si tool falla/UUID |
 | Operaciones Docker seguras | Skill `docker-safe-operations` | Antes docker-compose down -v, gestión volúmenes |
+
+> 💡 **Activación MCP incluida**: `workspace-sync` activa automáticamente Linear (issues, workspace), GitHub (repos, info). Para tools adicionales (documentos, PR reviews, team management), activar bajo demanda con `activate_*_tools()`.
 
 ---
 

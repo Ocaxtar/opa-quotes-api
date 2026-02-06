@@ -212,6 +212,9 @@ class QuoteRepository:
         """
         Create multiple quotes in batch with idempotent upsert.
 
+        Uses SAVEPOINTs (begin_nested) per quote to prevent a single failure
+        from poisoning the entire PostgreSQL transaction (OPA-425 fix).
+
         Args:
             quotes: List of QuoteCreate objects
 
@@ -257,9 +260,9 @@ class QuoteRepository:
                         exchange="NASDAQ"  # TODO: Get actual exchange
                     )
 
-                    # ON CONFLICT (timestamp, ticker) DO UPDATE
+                    # ON CONFLICT (ticker, timestamp) DO UPDATE
                     stmt = stmt.on_conflict_do_update(
-                        index_elements=['timestamp', 'ticker'],
+                        index_elements=['ticker', 'timestamp'],
                         set_={
                             'price': stmt.excluded.price,
                             'open': stmt.excluded.open,
@@ -269,7 +272,11 @@ class QuoteRepository:
                         }
                     )
 
-                    await self.db.execute(stmt)
+                    # SAVEPOINT per quote: prevents single failure from
+                    # poisoning the entire PostgreSQL transaction
+                    async with self.db.begin_nested():
+                        await self.db.execute(stmt)
+
                     created_count += 1
 
                 except Exception as e:
@@ -280,6 +287,7 @@ class QuoteRepository:
                     })
                     logger.warning(f"Failed to insert quote for {quote_data.ticker}: {e}")
 
+            # Commit all successful inserts
             await self.db.commit()
             logger.info(f"Batch insert: {created_count} created, {failed_count} failed")
 

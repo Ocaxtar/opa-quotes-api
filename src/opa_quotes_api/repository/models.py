@@ -14,9 +14,9 @@ class RealTimeQuote(Base):
     __tablename__ = "real_time"
     __table_args__ = {"schema": "quotes"}
 
-    # Primary key: time (TimescaleDB hypertable partitioning column)
-    time = Column(TIMESTAMP(timezone=True), primary_key=True, nullable=False)
+    # Primary key: (ticker, timestamp) según contrato oficial
     ticker = Column(String(5), primary_key=True, nullable=False)
+    timestamp = Column(TIMESTAMP(timezone=True), primary_key=True, nullable=False)
     
     # Price data
     price = Column(Double, nullable=False)
@@ -46,4 +46,4 @@ class RealTimeQuote(Base):
     exchange = Column(String(10), nullable=False)
 
     def __repr__(self):
-        return f"<RealTimeQuote(ticker='{self.ticker}', time='{self.time}', price={self.price})>"
+        return f"<RealTimeQuote(ticker='{self.ticker}', timestamp='{self.timestamp}', price={self.price})>"

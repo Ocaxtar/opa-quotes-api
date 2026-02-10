@@ -6,6 +6,26 @@ from enum import Enum
 from pydantic import BaseModel, Field, field_validator
 
 
+class CapacityContext(BaseModel):
+    """Capacity scoring context for enrichment."""
+
+    score: float = Field(..., description="Capacity score (0-1)", ge=0, le=1)
+    confidence: float = Field(..., description="Model confidence (0-1)", ge=0, le=1)
+    last_updated: datetime = Field(..., description="Timestamp of last score update")
+    model_version: str = Field(..., description="Model version used for scoring")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "score": 0.85,
+                "confidence": 0.92,
+                "last_updated": "2026-02-10T13:00:00Z",
+                "model_version": "1.0.0"
+            }
+        }
+    }
+
+
 class IntervalEnum(str, Enum):
     """Time interval options for historical data."""
 
@@ -84,6 +104,10 @@ class QuoteResponse(BaseModel):
     volume: int = Field(..., description="Volumen negociado", ge=0)
     bid: Decimal | None = Field(None, description="Precio de compra", ge=0)
     ask: Decimal | None = Field(None, description="Precio de venta", ge=0)
+    capacity_context: CapacityContext | None = Field(
+        None,
+        description="Capacity scoring context (optional, when available)"
+    )
 
     model_config = {
         "json_schema_extra": {

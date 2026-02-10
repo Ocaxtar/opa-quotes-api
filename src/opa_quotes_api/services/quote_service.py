@@ -1,4 +1,5 @@
 """Quote service with business logic and caching."""
+import json
 
 from opa_quotes_api.logging_setup import get_logger
 from opa_quotes_api.repository.quote_repository import QuoteRepository
@@ -6,6 +7,7 @@ from opa_quotes_api.schemas import (
     BatchQuoteItem,
     BatchRequest,
     BatchResponse,
+    CapacityContext,
     HistoryRequest,
     HistoryResponse,
     QuoteResponse,
@@ -52,7 +54,10 @@ class QuoteService:
 
         if cached:
             try:
-                return QuoteResponse.model_validate_json(cached)
+                quote = QuoteResponse.model_validate_json(cached)
+                # Enrich with capacity context (graceful degradation)
+                await self._enrich_with_capacity(quote)
+                return quote
             except Exception as e:
                 logger.warning(f"Failed to deserialize cached quote for {ticker}: {e}")
 
@@ -60,6 +65,9 @@ class QuoteService:
         quote = await self.repository.get_latest(ticker)
 
         if quote:
+            # Enrich with capacity context before caching
+            await self._enrich_with_capacity(quote)
+            
             # Cache result
             await self.cache.set(
                 cache_key,
@@ -154,6 +162,10 @@ class QuoteService:
         for ticker in tickers:
             if ticker in found_tickers:
                 quote = next(q for q in found_quotes if q.ticker == ticker)
+                
+                # Enrich with capacity context
+                await self._enrich_with_capacity(quote)
+                
                 batch_items.append(BatchQuoteItem(
                     ticker=ticker,
                     quote=quote,
@@ -213,3 +225,25 @@ class QuoteService:
             List of ticker symbols
         """
         return await self.repository.list_tickers(limit, offset)
+
+    async def _enrich_with_capacity(self, quote: QuoteResponse) -> None:
+        """
+        Enrich quote with capacity context if available.
+        
+        Implements graceful degradation: fails silently if Redis unavailable
+        or capacity score not cached.
+        
+        Args:
+            quote: QuoteResponse to enrich (modified in-place)
+        """
+        try:
+            capacity_key = f"capacity:score:{quote.ticker}"
+            capacity_data = await self.cache.get(capacity_key)
+            
+            if capacity_data:
+                capacity_dict = json.loads(capacity_data)
+                quote.capacity_context = CapacityContext(**capacity_dict)
+                logger.debug(f"Enriched {quote.ticker} with capacity context")
+        except Exception as e:
+            # Graceful degradation: log but don't fail the request
+            logger.debug(f"Could not enrich {quote.ticker} with capacity: {e}")

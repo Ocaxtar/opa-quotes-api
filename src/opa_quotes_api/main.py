@@ -1,6 +1,7 @@
 """
 opa-quotes-api - FastAPI application
 """
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -13,6 +14,7 @@ from opa_quotes_api.config import get_settings
 from opa_quotes_api.database import engine
 from opa_quotes_api.logging_setup import setup_logging
 from opa_quotes_api.routers import quotes, websocket
+from opa_quotes_api.services.capacity_subscriber import CapacitySubscriber
 
 # Setup logging
 setup_logging()
@@ -21,17 +23,35 @@ logger = logging.getLogger(__name__)
 # Settings
 settings = get_settings()
 
+# Global subscriber instance
+_capacity_subscriber: CapacitySubscriber | None = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan."""
+    global _capacity_subscriber
+    
     logger.info(f"Starting {settings.app_name} v{settings.version}")
 
-    # Startup
+    # Startup: Initialize capacity subscriber
+    try:
+        _capacity_subscriber = CapacitySubscriber()
+        await _capacity_subscriber.connect()
+        # Start listening in background task
+        asyncio.create_task(_capacity_subscriber.listen())
+        logger.info("Capacity subscriber started")
+    except Exception as e:
+        logger.warning(f"Could not start capacity subscriber: {e}")
+        # Continue without subscriber (graceful degradation)
+
     yield
 
     # Shutdown
     logger.info("Shutting down...")
+    if _capacity_subscriber:
+        await _capacity_subscriber.disconnect()
+        logger.info("Capacity subscriber stopped")
     await engine.dispose()
 
 

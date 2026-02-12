@@ -95,6 +95,10 @@ async def health_check():
 app.include_router(quotes.router, prefix="/v1")
 app.include_router(websocket.router, prefix="/v1")
 
+# OPA-506: Include websocket router without version prefix for compatibility
+# Allows connections to ws://localhost:8000/ws/quotes (in addition to /v1/ws/quotes)
+app.include_router(websocket.router)
+
 
 if __name__ == "__main__":
     import uvicorn

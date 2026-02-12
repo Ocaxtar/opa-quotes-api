@@ -177,15 +177,21 @@ curl -X POST http://localhost:8000/quotes/batch \
 
 ### WebSocket Streaming
 
-**Endpoint**: `ws://localhost:8000/v1/ws/quotes`
+> 📖 **Documentación completa**: Ver [docs/WEBSOCKET_API.md](docs/WEBSOCKET_API.md) para contrato detallado, troubleshooting y ejemplos.
+
+**Endpoints disponibles**:
+- `ws://localhost:8000/ws/quotes` (recomendado para scripts de validación)
+- `ws://localhost:8000/ws` (alias raíz)
+- `ws://localhost:8000/v1/ws/quotes` (versionado para integraciones API)
+- `ws://localhost:8000/v1/ws` (versionado raíz)
 
 **Conexión con filtro de tickers**:
 ```bash
 # Suscribirse a AAPL y MSFT solamente
-ws://localhost:8000/v1/ws/quotes?tickers=AAPL,MSFT
+ws://localhost:8000/ws/quotes?tickers=AAPL,MSFT
 
 # Suscribirse a todos los tickers (omitir parámetro)
-ws://localhost:8000/v1/ws/quotes
+ws://localhost:8000/ws/quotes
 ```
 
 **Cliente Python**:

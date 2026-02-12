@@ -184,3 +184,20 @@ async def websocket_endpoint(
                 logger.error(f"Error closing Redis client for client {client_id}: {e}")
         
         logger.info(f"Cleanup completed for client {client_id}")
+
+
+@router.websocket("")
+async def websocket_root(
+    websocket: WebSocket,
+    tickers: Optional[str] = Query(None, description="Comma-separated tickers (e.g., AAPL,MSFT). Omit for all tickers.")
+):
+    """
+    WebSocket endpoint raíz (alias de /quotes).
+    
+    OPA-506: Endpoint sin '/quotes' para compatibilidad con scripts de validación.
+    Mantiene misma funcionalidad que /quotes.
+    
+    **URL**: ws://localhost:8000/ws o ws://localhost:8000/v1/ws
+    """
+    # Reutilizar misma lógica que /quotes
+    await websocket_endpoint(websocket, tickers)
